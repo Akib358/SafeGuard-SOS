@@ -47,7 +47,12 @@ public class MissingChildAdapter extends RecyclerView.Adapter<MissingChildAdapte
         if (item == null) return;
 
         Context context = holder.itemView.getContext();
-        holder.binding.tvChildName.setText(item.getChildName());
+
+        String displayName = item.getChildName() != null ? item.getChildName() : "Unknown";
+        if (item.getEdited() != null && item.getEdited()) {
+            displayName += " (Edited)";
+        }
+        holder.binding.tvChildName.setText(displayName);
         holder.binding.tvChildAge.setText("Age: " + item.getAge() + " Yrs");
         holder.binding.tvLastSeenLocation.setText("📍 " + item.getLastSeenLocation());
 
@@ -73,9 +78,20 @@ public class MissingChildAdapter extends RecyclerView.Adapter<MissingChildAdapte
         TextView details = view.findViewById(R.id.tvPopupDetails);
         MaterialButton btnCall = view.findViewById(R.id.btnPopupCall);
 
-        title.setText(item.getChildName());
-        badge.setText("Status: ACTIVE SEARCH | Age: " + item.getAge());
-        badge.setTextColor(0xFF448AFF);
+        String titleText = item.getChildName();
+        if (item.getEdited() != null && item.getEdited()) {
+            titleText += " (Edited)";
+        }
+        title.setText(titleText);
+
+        if ("FOUND / RESOLVED".equalsIgnoreCase(item.getStatus()) || "RESOLVED".equalsIgnoreCase(item.getStatus())) {
+            badge.setText("Status: FOUND / RESOLVED | Age: " + item.getAge());
+            badge.setTextColor(0xFF00E676);
+        } else {
+            badge.setText("Status: ACTIVE SEARCH | Age: " + item.getAge());
+            badge.setTextColor(0xFF448AFF);
+        }
+
         loc.setText("📍 Last Seen: " + item.getLastSeenLocation());
         phone.setText("📞 Contact: " + item.getContactPhone());
         details.setText("📋 Description: " + item.getDescription());
@@ -93,8 +109,10 @@ public class MissingChildAdapter extends RecyclerView.Adapter<MissingChildAdapte
                 .create();
 
         btnCall.setOnClickListener(v -> {
-            Intent intent = new Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + item.getContactPhone()));
-            context.startActivity(intent);
+            if (item.getContactPhone() != null && !item.getContactPhone().isEmpty()) {
+                Intent intent = new Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + item.getContactPhone()));
+                context.startActivity(intent);
+            }
         });
 
         dialog.show();

@@ -1,147 +1,202 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:importantForAutofill="noExcludeDescendants"
-    android:padding="16dp"
-    tools:targetApi="o">
+    android:background="#161622">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:background="#161622"
         android:importantForAutofill="noExcludeDescendants"
         android:orientation="vertical"
-        tools:targetApi="o">
+        android:padding="20dp">
 
-        <!-- Child Name Field -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Report Missing Person"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <!-- Child / Person Name -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/tilChildName"
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Child Full Name"
-            app:errorEnabled="true">
+            android:layout_marginTop="14dp"
+            android:hint="Person's Full Name"
+            android:textColorHint="#8F8FA3"
+            app:boxBackgroundColor="#1E1E2D"
+            app:boxBackgroundMode="outline"
+            app:boxCornerRadiusBottomEnd="8dp"
+            app:boxCornerRadiusBottomStart="8dp"
+            app:boxCornerRadiusTopEnd="8dp"
+            app:boxCornerRadiusTopStart="8dp"
+            app:boxStrokeColor="#448AFF"
+            app:hintTextColor="#448AFF">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etDialogChildName"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:background="@android:color/transparent"
                 android:importantForAutofill="no"
-                android:inputType="textPersonName|textCapWords"
-                tools:targetApi="o" />
+                android:inputType="textPersonName"
+                android:textColor="#FFFFFF" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Child Age Field -->
+        <!-- Age -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/tilChildAge"
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:hint="Age (e.g. 7 Years)"
-            app:errorEnabled="true">
+            android:layout_marginTop="12dp"
+            android:hint="Age (e.g. 10)"
+            android:textColorHint="#8F8FA3"
+            app:boxBackgroundColor="#1E1E2D"
+            app:boxBackgroundMode="outline"
+            app:boxCornerRadiusBottomEnd="8dp"
+            app:boxCornerRadiusBottomStart="8dp"
+            app:boxCornerRadiusTopEnd="8dp"
+            app:boxCornerRadiusTopStart="8dp"
+            app:boxStrokeColor="#448AFF"
+            app:hintTextColor="#448AFF">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etDialogChildAge"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:background="@android:color/transparent"
                 android:importantForAutofill="no"
-                android:inputType="text"
-                tools:targetApi="o" />
+                android:inputType="number"
+                android:textColor="#FFFFFF" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Last Seen Location Field -->
+        <!-- Last Seen Location -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/tilChildLocation"
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="12dp"
             android:hint="Last Seen Location"
-            app:errorEnabled="true">
+            android:textColorHint="#8F8FA3"
+            app:boxBackgroundColor="#1E1E2D"
+            app:boxBackgroundMode="outline"
+            app:boxCornerRadiusBottomEnd="8dp"
+            app:boxCornerRadiusBottomStart="8dp"
+            app:boxCornerRadiusTopEnd="8dp"
+            app:boxCornerRadiusTopStart="8dp"
+            app:boxStrokeColor="#448AFF"
+            app:hintTextColor="#448AFF">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etDialogChildLocation"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:background="@android:color/transparent"
                 android:importantForAutofill="no"
-                android:inputType="textPostalAddress|textCapSentences"
-                tools:targetApi="o" />
+                android:inputType="textPostalAddress"
+                android:textColor="#FFFFFF" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Phone Field -->
+        <!-- Contact Phone -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/tilChildPhone"
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:hint="Emergency Contact Phone"
-            app:errorEnabled="true">
+            android:layout_marginTop="12dp"
+            android:hint="Guardian Phone (e.g. +88017...)"
+            android:textColorHint="#8F8FA3"
+            app:boxBackgroundColor="#1E1E2D"
+            app:boxBackgroundMode="outline"
+            app:boxCornerRadiusBottomEnd="8dp"
+            app:boxCornerRadiusBottomStart="8dp"
+            app:boxCornerRadiusTopEnd="8dp"
+            app:boxCornerRadiusTopStart="8dp"
+            app:boxStrokeColor="#448AFF"
+            app:hintTextColor="#448AFF">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etDialogChildPhone"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:background="@android:color/transparent"
                 android:importantForAutofill="no"
                 android:inputType="phone"
-                tools:targetApi="o" />
+                android:textColor="#FFFFFF" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Description Field -->
+        <!-- Description -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/tilChildDesc"
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:hint="Physical Description / Clothes">
+            android:layout_marginTop="12dp"
+            android:hint="Physical Description / Clothing Details"
+            android:textColorHint="#8F8FA3"
+            app:boxBackgroundColor="#1E1E2D"
+            app:boxBackgroundMode="outline"
+            app:boxCornerRadiusBottomEnd="8dp"
+            app:boxCornerRadiusBottomStart="8dp"
+            app:boxCornerRadiusTopEnd="8dp"
+            app:boxCornerRadiusTopStart="8dp"
+            app:boxStrokeColor="#448AFF"
+            app:hintTextColor="#448AFF">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etDialogChildDesc"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="top|start"
+                android:background="@android:color/transparent"
                 android:importantForAutofill="no"
-                android:inputType="textMultiLine|textCapSentences"
-                android:lines="3"
-                tools:targetApi="o" />
+                android:inputType="textMultiLine"
+                android:minLines="2"
+                android:textColor="#FFFFFF" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Photo Selection -->
+        <!-- Image Upload Section -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="16dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
             <ImageView
                 android:id="@+id/ivDialogChildPhoto"
-                android:layout_width="60dp"
-                android:layout_height="60dp"
+                android:layout_width="70dp"
+                android:layout_height="70dp"
                 android:background="#292E42"
                 android:scaleType="centerCrop"
                 android:src="@android:drawable/ic_menu_gallery" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnDialogSelectPhoto"
-                style="@style/Widget.Material3.Button.TonalButton"
-                android:layout_width="0dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="12dp"
-                android:layout_weight="1"
-                android:text="Select Child Photo" />
+                android:layout_marginStart="14dp"
+                android:backgroundTint="#2C2C3E"
+                android:text="Choose Photo"
+                android:textColor="#448AFF"
+                app:cornerRadius="8dp"
+                app:strokeColor="#448AFF"
+                app:strokeWidth="1dp" />
         </LinearLayout>
 
         <ProgressBar
             android:id="@+id/dialogProgressBar"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginTop="12dp"
+            android:layout_gravity="center"
+            android:layout_marginTop="14dp"
             android:visibility="gone" />
 
     </LinearLayout>

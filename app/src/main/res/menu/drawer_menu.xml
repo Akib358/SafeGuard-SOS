@@ -6,6 +6,10 @@
             android:icon="@android:drawable/ic_menu_myplaces"
             android:title="User Profile" />
         <item
+            android:id="@+id/nav_drawer_my_posts"
+            android:icon="@android:drawable/ic_menu_agenda"
+            android:title="My Posts &amp; Reports" />
+        <item
             android:id="@+id/nav_drawer_settings"
             android:icon="@android:drawable/ic_menu_preferences"
             android:title="SOS &amp; SIM Settings" />

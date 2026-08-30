@@ -13,6 +13,8 @@ public class MissingChild {
     private double longitude;
     private long timestamp;
     private String status;
+    private Boolean edited;
+    private long editedAt;
 
     public MissingChild() {}
 
@@ -32,6 +34,8 @@ public class MissingChild {
         this.longitude = longitude;
         this.timestamp = timestamp;
         this.status = status;
+        this.edited = false;
+        this.editedAt = 0;
     }
 
     public String getReportId() { return reportId; }
@@ -39,6 +43,9 @@ public class MissingChild {
 
     public String getReporterId() { return reporterId; }
     public void setReporterId(String reporterId) { this.reporterId = reporterId; }
+
+    public String getUserId() { return reporterId; }
+    public void setUserId(String userId) { this.reporterId = userId; }
 
     public String getChildName() { return childName; }
     public void setChildName(String childName) { this.childName = childName; }
@@ -69,4 +76,10 @@ public class MissingChild {
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+
+    public Boolean getEdited() { return edited != null && edited; }
+    public void setEdited(Boolean edited) { this.edited = edited; }
+
+    public long getEditedAt() { return editedAt; }
+    public void setEditedAt(long editedAt) { this.editedAt = editedAt; }
 }

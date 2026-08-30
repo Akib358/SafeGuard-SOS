@@ -10,9 +10,11 @@ import android.os.Build;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.EditText;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -24,6 +26,7 @@ import androidx.fragment.app.Fragment;
 
 import com.example.safeguardsosfinal.R;
 import com.example.safeguardsosfinal.databinding.ActivityMainBinding;
+import com.example.safeguardsosfinal.models.MissingChild;
 import com.example.safeguardsosfinal.services.PanicSOSService;
 import com.example.safeguardsosfinal.ui.fragments.BloodNetworkFragment;
 import com.example.safeguardsosfinal.ui.fragments.ContactsSettingsFragment;
@@ -42,11 +45,14 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -91,12 +97,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupTopNotificationBell() {
-        // টপ রাইট নোটিফিকেশন বেল ক্লিক করলে নোটিফিকেশন ফ্র্যাগমেন্ট ওপেন হবে
-        binding.btnNotificationBell.setOnClickListener(v -> {
-            loadFragment(new NotificationsFragment());
-        });
+        binding.btnNotificationBell.setOnClickListener(v -> loadFragment(new NotificationsFragment()));
 
-        // ফায়ারস্টোর থেকে রিয়েলটাইম অ্যাক্টিভ অ্যালার্ট সংখ্যা পর্যবেক্ষণ
         long twoHoursAgo = System.currentTimeMillis() - (2 * 60 * 60 * 1000);
         topBadgeListener = FirebaseFirestore.getInstance().collection("emergency_broadcasts")
                 .whereEqualTo("status", "ACTIVE_DANGER")
@@ -156,6 +158,9 @@ public class MainActivity extends AppCompatActivity {
             if (id == R.id.nav_drawer_profile) {
                 showAccountProfileDialog();
                 return true;
+            } else if (id == R.id.nav_drawer_my_posts) {
+                showMyPostsOptionsDialog();
+                return true;
             } else if (id == R.id.nav_drawer_settings) {
                 showSettingsDialog();
                 return true;
@@ -165,6 +170,172 @@ public class MainActivity extends AppCompatActivity {
             }
             return false;
         });
+    }
+
+    private void showMyPostsOptionsDialog() {
+        String[] options = {"Manage My Missing Person Reports", "Manage My Blood Requests"};
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("📋 My Posts & Reports")
+                .setItems(options, (dialog, which) -> {
+                    if (which == 0) {
+                        loadUserMissingReports();
+                    } else {
+                        loadUserBloodRequests();
+                    }
+                })
+                .setNegativeButton("Close", null)
+                .show();
+    }
+
+    private void loadUserMissingReports() {
+        String uid = auth.getUid();
+        if (uid == null) return;
+
+        FirebaseFirestore.getInstance().collection("missing_children")
+                .whereEqualTo("reporterId", uid)
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    if (queryDocumentSnapshots.isEmpty()) {
+                        Toast.makeText(this, "You haven't posted any missing reports.", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    List<String> titles = new ArrayList<>();
+                    List<DocumentSnapshot> docs = queryDocumentSnapshots.getDocuments();
+                    for (DocumentSnapshot doc : docs) {
+                        String name = doc.getString("childName");
+                        String status = doc.getString("status");
+                        Boolean isEdited = doc.getBoolean("edited");
+                        String editedTag = (isEdited != null && isEdited) ? " (Edited)" : "";
+                        titles.add((name != null ? name : "Report") + " [" + status + "]" + editedTag);
+                    }
+
+                    new MaterialAlertDialogBuilder(this)
+                            .setTitle("Select Report to Manage")
+                            .setItems(titles.toArray(new String[0]), (dialog, which) -> {
+                                showManageSingleReportDialog(docs.get(which), "missing_children");
+                            })
+                            .setNegativeButton("Back", null)
+                            .show();
+                });
+    }
+
+    private void loadUserBloodRequests() {
+        String uid = auth.getUid();
+        if (uid == null) return;
+
+        FirebaseFirestore.getInstance().collection("blood_requests")
+                .whereEqualTo("requesterId", uid)
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    if (queryDocumentSnapshots.isEmpty()) {
+                        Toast.makeText(this, "You haven't posted any blood requests.", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    List<String> titles = new ArrayList<>();
+                    List<DocumentSnapshot> docs = queryDocumentSnapshots.getDocuments();
+                    for (DocumentSnapshot doc : docs) {
+                        String grp = doc.getString("bloodGroup");
+                        String hospital = doc.getString("hospital");
+                        String status = doc.getString("status");
+                        Boolean isEdited = doc.getBoolean("edited");
+                        String editedTag = (isEdited != null && isEdited) ? " (Edited)" : "";
+                        titles.add((grp != null ? grp : "Blood") + " at " + hospital + " [" + status + "]" + editedTag);
+                    }
+
+                    new MaterialAlertDialogBuilder(this)
+                            .setTitle("Select Request to Manage")
+                            .setItems(titles.toArray(new String[0]), (dialog, which) -> {
+                                showManageSingleReportDialog(docs.get(which), "blood_requests");
+                            })
+                            .setNegativeButton("Back", null)
+                            .show();
+                });
+    }
+
+    private void showManageSingleReportDialog(DocumentSnapshot doc, String collectionName) {
+        String docId = doc.getId();
+        String[] actions = {"Mark as FOUND / RESOLVED", "Edit Post", "Delete Post"};
+
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Actions")
+                .setItems(actions, (d, which) -> {
+                    if (which == 0) {
+                        FirebaseFirestore.getInstance().collection(collectionName).document(docId)
+                                .update("status", "FOUND / RESOLVED")
+                                .addOnSuccessListener(v -> Toast.makeText(this, "Status updated to FOUND / RESOLVED", Toast.LENGTH_SHORT).show());
+                    } else if (which == 1) {
+                        if (collectionName.equals("missing_children")) {
+                            showEditMissingReportDialog(doc);
+                        } else {
+                            showEditBloodRequestDialog(doc);
+                        }
+                    } else if (which == 2) {
+                        FirebaseFirestore.getInstance().collection(collectionName).document(docId)
+                                .delete()
+                                .addOnSuccessListener(v -> Toast.makeText(this, "Post deleted successfully", Toast.LENGTH_SHORT).show());
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void showEditMissingReportDialog(DocumentSnapshot doc) {
+        View view = LayoutInflater.from(this).inflate(R.layout.dialog_add_missing_child, null);
+        EditText etName = view.findViewById(R.id.etDialogChildName);
+        EditText etAge = view.findViewById(R.id.etDialogChildAge);
+        EditText etLoc = view.findViewById(R.id.etDialogChildLocation);
+        EditText etPhone = view.findViewById(R.id.etDialogChildPhone);
+        EditText etDesc = view.findViewById(R.id.etDialogChildDesc);
+
+        etName.setText(doc.getString("childName"));
+        etAge.setText(doc.getString("age"));
+        etLoc.setText(doc.getString("lastSeenLocation"));
+        etPhone.setText(doc.getString("contactPhone"));
+        etDesc.setText(doc.getString("description"));
+
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("✏️ Edit Missing Report")
+                .setView(view)
+                .setPositiveButton("Update", (dialog, which) -> {
+                    Map<String, Object> updates = new HashMap<>();
+                    updates.put("childName", etName.getText().toString().trim());
+                    updates.put("age", etAge.getText().toString().trim());
+                    updates.put("lastSeenLocation", etLoc.getText().toString().trim());
+                    updates.put("contactPhone", etPhone.getText().toString().trim());
+                    updates.put("description", etDesc.getText().toString().trim());
+                    updates.put("edited", true);
+                    updates.put("editedAt", System.currentTimeMillis());
+
+                    FirebaseFirestore.getInstance().collection("missing_children").document(doc.getId())
+                            .update(updates)
+                            .addOnSuccessListener(v -> Toast.makeText(this, "Report updated with (Edited) tag!", Toast.LENGTH_SHORT).show());
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void showEditBloodRequestDialog(DocumentSnapshot doc) {
+        EditText etHospital = new EditText(this);
+        etHospital.setHint("Hospital / Location Name");
+        etHospital.setText(doc.getString("hospital"));
+
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("✏️ Edit Blood Request")
+                .setView(etHospital)
+                .setPositiveButton("Update", (dialog, which) -> {
+                    Map<String, Object> updates = new HashMap<>();
+                    updates.put("hospital", etHospital.getText().toString().trim());
+                    updates.put("edited", true);
+                    updates.put("editedAt", System.currentTimeMillis());
+
+                    FirebaseFirestore.getInstance().collection("blood_requests").document(doc.getId())
+                            .update(updates)
+                            .addOnSuccessListener(v -> Toast.makeText(this, "Request updated with (Edited) tag!", Toast.LENGTH_SHORT).show());
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     private void setupBottomNavigation() {
