@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/nav_dashboard"
+        android:icon="@android:drawable/ic_dialog_alert"
+        android:title="SOS" />
+    <item
+        android:id="@+id/nav_map_radar"
+        android:icon="@android:drawable/ic_dialog_map"
+        android:title="Radar" />
+    <item
+        android:id="@+id/nav_missing_child"
+        android:icon="@android:drawable/ic_menu_search"
+        android:title="Missing" />
+    <item
+        android:id="@+id/nav_blood_network"
+        android:icon="@android:drawable/ic_menu_agenda"
+        android:title="Blood" />
+    <item
+        android:id="@+id/nav_contacts"
+        android:icon="@android:drawable/ic_menu_call"
+        android:title="Contacts" />
+</menu>

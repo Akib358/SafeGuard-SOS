@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <group android:checkableBehavior="none">
+        <item
+            android:id="@+id/nav_drawer_profile"
+            android:icon="@android:drawable/ic_menu_myplaces"
+            android:title="User Profile" />
+        <item
+            android:id="@+id/nav_drawer_settings"
+            android:icon="@android:drawable/ic_menu_preferences"
+            android:title="SOS &amp; SIM Settings" />
+        <item
+            android:id="@+id/nav_drawer_logout"
+            android:icon="@android:drawable/ic_lock_power_off"
+            android:title="Log Out" />
+    </group>
+</menu>

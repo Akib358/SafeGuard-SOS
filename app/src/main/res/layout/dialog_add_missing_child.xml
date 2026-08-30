@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:importantForAutofill="noExcludeDescendants"
+    android:padding="16dp"
+    tools:targetApi="o">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:importantForAutofill="noExcludeDescendants"
+        android:orientation="vertical"
+        tools:targetApi="o">
+
+        <!-- Child Name Field -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/tilChildName"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Child Full Name"
+            app:errorEnabled="true">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etDialogChildName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:importantForAutofill="no"
+                android:inputType="textPersonName|textCapWords"
+                tools:targetApi="o" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Child Age Field -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/tilChildAge"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:hint="Age (e.g. 7 Years)"
+            app:errorEnabled="true">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etDialogChildAge"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:importantForAutofill="no"
+                android:inputType="text"
+                tools:targetApi="o" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Last Seen Location Field -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/tilChildLocation"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:hint="Last Seen Location"
+            app:errorEnabled="true">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etDialogChildLocation"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:importantForAutofill="no"
+                android:inputType="textPostalAddress|textCapSentences"
+                tools:targetApi="o" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Phone Field -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/tilChildPhone"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:hint="Emergency Contact Phone"
+            app:errorEnabled="true">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etDialogChildPhone"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:importantForAutofill="no"
+                android:inputType="phone"
+                tools:targetApi="o" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Description Field -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/tilChildDesc"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:hint="Physical Description / Clothes">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etDialogChildDesc"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="top|start"
+                android:importantForAutofill="no"
+                android:inputType="textMultiLine|textCapSentences"
+                android:lines="3"
+                tools:targetApi="o" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Photo Selection -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:id="@+id/ivDialogChildPhoto"
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                android:background="#292E42"
+                android:scaleType="centerCrop"
+                android:src="@android:drawable/ic_menu_gallery" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDialogSelectPhoto"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:layout_weight="1"
+                android:text="Select Child Photo" />
+        </LinearLayout>
+
+        <ProgressBar
+            android:id="@+id/dialogProgressBar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="12dp"
+            android:visibility="gone" />
+
+    </LinearLayout>
+</ScrollView>
