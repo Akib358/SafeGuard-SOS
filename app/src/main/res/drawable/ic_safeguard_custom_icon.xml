@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Hexagonal Security Shield Body -->
+    <path
+        android:fillColor="#151522"
+        android:pathData="M54,16 L84,28 C84,54 70,78 54,92 C38,78 24,54 24,28 Z" />
+
+    <!-- Outer Neon Cyan/Blue Cyber Ring -->
+    <path
+        android:strokeColor="#2979FF"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M54,16 L84,28 C84,54 70,78 54,92 C38,78 24,54 24,28 Z" />
+
+    <!-- Inner Red Danger Accent Border -->
+    <path
+        android:strokeColor="#FF1744"
+        android:strokeWidth="1.8"
+        android:pathData="M54,23 L77,32 C77,52 66,71 54,82 C42,71 31,52 31,32 Z" />
+
+    <!-- Center Radar Target Circle -->
+    <path
+        android:fillColor="#1F1F35"
+        android:pathData="M54,54m-16,0a16,16 0,1,1 32,0a16,16 0,1,1 -32,0" />
+
+    <!-- SOS Dynamic Heartbeat / Lifeline Pulse -->
+    <path
+        android:strokeColor="#00E676"
+        android:strokeWidth="3.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M38,54 L44,54 L48,43 L52,65 L57,48 L60,56 L64,54 L70,54" />
+
+    <!-- Top GPS Beacon Indicator Dot -->
+    <path
+        android:fillColor="#FF5252"
+        android:pathData="M54,30m-3.5,0a3.5,3.5 0,1,1 7,0a3.5,3.5 0,1,1 -7,0" />
+
+</vector>
