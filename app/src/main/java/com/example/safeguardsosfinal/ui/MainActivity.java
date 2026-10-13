@@ -88,6 +88,26 @@ public class MainActivity extends AppCompatActivity {
         setupBottomNavigation();
         setupTopNotificationBell();
         checkAndRequestPermissions();
+        syncUserProfile();
+    }
+
+    private void syncUserProfile() {
+        if (auth.getCurrentUser() != null) {
+            String uid = auth.getCurrentUser().getUid();
+            FirebaseFirestore.getInstance().collection("users").document(uid).get()
+                    .addOnSuccessListener(doc -> {
+                        if (doc != null && doc.exists()) {
+                            String name = doc.getString("name");
+                            String phone = doc.getString("phone");
+                            String blood = doc.getString("bloodGroup");
+                            getSharedPreferences("SafeGuardUser", MODE_PRIVATE).edit()
+                                    .putString("user_name", name != null ? name : "")
+                                    .putString("user_phone", phone != null ? phone : "")
+                                    .putString("user_blood", blood != null ? blood : "")
+                                    .apply();
+                        }
+                    });
+        }
     }
 
     @Override
@@ -105,8 +125,23 @@ public class MainActivity extends AppCompatActivity {
                 .whereGreaterThan("timestamp", twoHoursAgo)
                 .addSnapshotListener((snapshots, error) -> {
                     if (snapshots != null && !snapshots.isEmpty()) {
-                        binding.tvTopNotifBadge.setVisibility(View.VISIBLE);
-                        binding.tvTopNotifBadge.setText(String.valueOf(snapshots.size()));
+                        String myUid = FirebaseAuth.getInstance().getUid();
+                        SharedPreferences sp = getSharedPreferences("SafeGuardUser", MODE_PRIVATE);
+                        String myPhone = sp.getString("user_phone", "");
+                        int count = 0;
+                        for (DocumentSnapshot doc : snapshots.getDocuments()) {
+                            String uid = doc.getString("userId");
+                            String phone = doc.getString("phone");
+                            if (myUid != null && myUid.equals(uid)) continue;
+                            if (phone != null && !myPhone.isEmpty() && phone.equals(myPhone)) continue;
+                            count++;
+                        }
+                        if (count > 0) {
+                            binding.tvTopNotifBadge.setVisibility(View.VISIBLE);
+                            binding.tvTopNotifBadge.setText(String.valueOf(count));
+                        } else {
+                            binding.tvTopNotifBadge.setVisibility(View.GONE);
+                        }
                     } else {
                         binding.tvTopNotifBadge.setVisibility(View.GONE);
                     }

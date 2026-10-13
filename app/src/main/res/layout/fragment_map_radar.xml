@@ -113,8 +113,8 @@
                     android:layout_height="36dp"
                     android:layout_marginStart="6dp"
                     android:backgroundTint="#26263B"
-                    android:text="🔴 Danger Only"
-                    android:textColor="#FF5252"
+                    android:text="🔴 Danger"
+                    android:textColor="#FF1744"
                     android:textSize="11sp"
                     app:cornerRadius="18dp" />
 
@@ -125,7 +125,7 @@
                     android:layout_height="36dp"
                     android:layout_marginStart="6dp"
                     android:backgroundTint="#26263B"
-                    android:text="🟡 Caution"
+                    android:text="🟡 Moderate"
                     android:textColor="#FFD600"
                     android:textSize="11sp"
                     app:cornerRadius="18dp" />
@@ -137,7 +137,7 @@
                     android:layout_height="36dp"
                     android:layout_marginStart="6dp"
                     android:backgroundTint="#26263B"
-                    android:text="🟢 Safe Zones"
+                    android:text="🟢 Safe"
                     android:textColor="#00E676"
                     android:textSize="11sp"
                     app:cornerRadius="18dp" />

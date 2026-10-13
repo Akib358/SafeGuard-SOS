@@ -34,9 +34,13 @@ import com.example.safeguardsosfinal.ui.MainActivity;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
+import com.google.firebase.firestore.QuerySnapshot;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.Executors;
 
 public class MapRadarFragment extends Fragment implements LocationListener {
@@ -44,7 +48,9 @@ public class MapRadarFragment extends Fragment implements LocationListener {
     private FragmentMapRadarBinding binding;
     private LocationManager locationManager;
     private ListenerRegistration customZonesListener;
-    private ListenerRegistration emergencyRadarListener;
+    private ListenerRegistration activeSosListener;
+    private QuerySnapshot cachedZoneSnapshots;
+    private QuerySnapshot cachedSosSnapshots;
 
     private double currentLat = 0.0;
     private double currentLng = 0.0;
@@ -199,17 +205,30 @@ public class MapRadarFragment extends Fragment implements LocationListener {
                 + "  redZones = []; yellowZones = []; greenZones = [];"
                 + "}"
                 + "function addZone(type, lat, lng, title, desc, radiusMeters) {"
-                + "  var color = type === 'RED' ? '#FF5252' : (type === 'YELLOW' ? '#FFD600' : '#00E676');"
-                + "  var circle = L.circle([lat, lng], { color: color, fillColor: color, fillOpacity: 0.25, radius: radiusMeters, weight: 2 }).addTo(map);"
+                + "  var t = (type || '').toUpperCase();"
+                + "  var color = '#00E676';"
+                + "  var category = 'GREEN';"
+                + "  if (t === 'RED' || t.indexOf('DANGER') !== -1 || t.indexOf('CRITICAL') !== -1) {"
+                + "    color = '#FF1744';"
+                + "    category = 'RED';"
+                + "  } else if (t === 'YELLOW' || t.indexOf('MODERATE') !== -1 || t.indexOf('CAUTION') !== -1 || t.indexOf('WARNING') !== -1) {"
+                + "    color = '#FFD600';"
+                + "    category = 'YELLOW';"
+                + "  } else {"
+                + "    color = '#00E676';"
+                + "    category = 'GREEN';"
+                + "  }"
+                + "  var circle = L.circle([lat, lng], { color: color, fillColor: color, fillOpacity: 0.28, radius: radiusMeters, weight: 2 }).addTo(map);"
                 + "  circle.bindPopup('<b>' + title + '</b><br/>' + desc);"
-                + "  if(type === 'RED') redZones.push(circle);"
-                + "  else if(type === 'YELLOW') yellowZones.push(circle);"
-                + "  else if(type === 'GREEN') greenZones.push(circle);"
+                + "  if(category === 'RED') redZones.push(circle);"
+                + "  else if(category === 'YELLOW') yellowZones.push(circle);"
+                + "  else greenZones.push(circle);"
                 + "}"
                 + "function filterZones(mode) {"
-                + "  redZones.forEach(l => mode === 'ALL' || mode === 'RED' ? map.addLayer(l) : map.removeLayer(l));"
-                + "  yellowZones.forEach(l => mode === 'ALL' || mode === 'YELLOW' ? map.addLayer(l) : map.removeLayer(l));"
-                + "  greenZones.forEach(l => mode === 'ALL' || mode === 'GREEN' ? map.addLayer(l) : map.removeLayer(l));"
+                + "  var m = (mode || '').toUpperCase();"
+                + "  redZones.forEach(function(l) { (m === 'ALL' || m === 'RED' || m === 'DANGER') ? map.addLayer(l) : map.removeLayer(l); });"
+                + "  yellowZones.forEach(function(l) { (m === 'ALL' || m === 'YELLOW' || m === 'MODERATE' || m === 'CAUTION') ? map.addLayer(l) : map.removeLayer(l); });"
+                + "  greenZones.forEach(function(l) { (m === 'ALL' || m === 'GREEN' || m === 'SAFE') ? map.addLayer(l) : map.removeLayer(l); });"
                 + "}"
                 + "</script>"
                 + "</body>"
@@ -295,49 +314,230 @@ public class MapRadarFragment extends Fragment implements LocationListener {
         });
     }
 
+    // Real-time listener for Firestore registered zones and dynamic active SOS incident density
     private void listenToFirestoreZonesAndBroadcasts() {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
 
+        // 1. Listen for registered safety zones
         customZonesListener = db.collection("safety_zones")
                 .addSnapshotListener((snapshots, error) -> {
                     if (error != null || snapshots == null || !isMapLoaded) return;
+                    cachedZoneSnapshots = snapshots;
+                    renderAllMapZones();
+                });
 
-                    binding.mapWebView.evaluateJavascript("clearAllZones();", null);
+        // 2. Real-time dynamic threat clustering from instant SOS broadcasts
+        activeSosListener = db.collection("emergency_broadcasts")
+                .addSnapshotListener((sosSnapshots, sosError) -> {
+                    if (sosError != null || sosSnapshots == null || !isMapLoaded) return;
+                    cachedSosSnapshots = sosSnapshots;
+                    renderAllMapZones();
+                    com.example.safeguardsosfinal.network.FirebaseManager.getInstance().evaluateAndSyncAllDangerZones();
+                });
+    }
 
-                    for (DocumentSnapshot doc : snapshots.getDocuments()) {
-                        Double lat = doc.getDouble("latitude");
-                        Double lng = doc.getDouble("longitude");
-                        String type = doc.getString("type");
-                        String title = doc.getString("title");
-                        String desc = doc.getString("description");
-                        Double radius = doc.getDouble("radius");
+    // Synchronize both static zones and calculated dynamic zones based on 100m radius clustering:
+    // Rule: Within 100m radius, if last 1 month SOS >= 7 OR total SOS >= 15 -> 2 KM DANGER ZONE (RED)
+    private void renderAllMapZones() {
+        if (!isMapLoaded || binding == null) return;
 
-                        if (lat != null && lng != null) {
-                            String zoneType = type != null ? type.toUpperCase() : "GREEN";
-                            String zTitle = title != null ? title : "Safety Zone";
-                            String zDesc = desc != null ? desc : "Registered Zone Info";
-                            double rad = radius != null ? radius : 1000.0;
+        binding.mapWebView.evaluateJavascript("clearAllZones();", null);
 
-                            binding.mapWebView.evaluateJavascript("addZone('" + zoneType + "', " + lat + ", " + lng + ", '" + zTitle + "', '" + zDesc + "', " + rad + ");", null);
+        // 1. Render static registered safety zones from database
+        if (cachedZoneSnapshots != null) {
+            for (DocumentSnapshot doc : cachedZoneSnapshots.getDocuments()) {
+                Double lat = null, lng = null;
+                Object latObj = doc.get("latitude");
+                if (latObj instanceof Number) lat = ((Number) latObj).doubleValue();
+                Object lngObj = doc.get("longitude");
+                if (lngObj instanceof Number) lng = ((Number) lngObj).doubleValue();
+
+                if (lat != null && lng != null) {
+                    String rawRisk = doc.getString("riskLevel");
+                    if (rawRisk == null) rawRisk = doc.getString("zoneType");
+                    if (rawRisk == null) rawRisk = doc.getString("type");
+
+                    String docIdLower = doc.getId().toLowerCase();
+                    String titleStr = doc.getString("title");
+                    if (titleStr == null) titleStr = doc.getString("zoneName");
+                    if (titleStr == null) titleStr = doc.getString("name");
+                    if (titleStr == null) titleStr = "Safety Zone";
+
+                    String zoneType = "GREEN";
+                    String prefix = "🟢";
+
+                    if (rawRisk != null) {
+                        String upper = rawRisk.trim().toUpperCase();
+                        if (upper.contains("DANGER") || upper.contains("CRITICAL") || upper.equals("RED")) {
+                            zoneType = "RED";
+                            prefix = "🔴";
+                        } else if (upper.contains("MODERATE") || upper.contains("CAUTION") || upper.contains("WARNING") || upper.equals("YELLOW")) {
+                            zoneType = "YELLOW";
+                            prefix = "🟡";
+                        } else {
+                            zoneType = "GREEN";
+                            prefix = "🟢";
+                        }
+                    } else if (docIdLower.contains("danger") || titleStr.toLowerCase().contains("danger") || docIdLower.contains("da_") || docIdLower.contains("critical")) {
+                        zoneType = "RED";
+                        prefix = "🔴";
+                    } else if (docIdLower.contains("caution") || titleStr.toLowerCase().contains("caution") || docIdLower.contains("moderate") || titleStr.toLowerCase().contains("moderate") || docIdLower.contains("ca_")) {
+                        zoneType = "YELLOW";
+                        prefix = "🟡";
+                    } else {
+                        zoneType = "GREEN";
+                        prefix = "🟢";
+                    }
+
+                    double rad = 1000.0;
+                    Object radObj = doc.get("radiusInMeters");
+                    if (radObj == null) radObj = doc.get("radius");
+                    if (radObj instanceof Number) {
+                        rad = ((Number) radObj).doubleValue();
+                    }
+
+                    String descStr = doc.getString("description");
+                    if (descStr == null) descStr = doc.getString("desc");
+                    if (descStr == null) descStr = doc.getString("details");
+                    if (descStr == null) {
+                        if ("RED".equals(zoneType)) {
+                            descStr = "🚨 Critical Threat / Danger Zone (" + (int) rad + "m perimeter)";
+                        } else if ("YELLOW".equals(zoneType)) {
+                            descStr = "⚠️ Moderate Caution Risk Zone (" + (int) rad + "m perimeter)";
+                        } else {
+                            descStr = "✅ Verified Safe Secured Area (" + (int) rad + "m perimeter)";
                         }
                     }
 
-                    db.collection("emergency_broadcasts")
-                            .whereEqualTo("status", "ACTIVE_DANGER")
-                            .get()
-                            .addOnSuccessListener(queryDocs -> {
-                                for (DocumentSnapshot d : queryDocs) {
-                                    Double lat = d.getDouble("latitude");
-                                    Double lng = d.getDouble("longitude");
-                                    String phone = d.getString("phone");
-                                    if (lat != null && lng != null) {
-                                        String p = phone != null ? phone : "SOS Victim";
-                                        binding.mapWebView.evaluateJavascript("addZone('RED', " + lat + ", " + lng + ", '🔴 DANGER SOS ALERT', 'Emergency active! Contact: " + p + "', 1000);", null);
-                                    }
-                                }
-                                binding.mapWebView.evaluateJavascript("filterZones('" + activeFilter + "');", null);
-                            });
-                });
+                    String safeTitle = prefix + " " + titleStr.replace("'", "\\'").replace("\"", "\\\"");
+                    String safeDesc = descStr.replace("'", "\\'").replace("\"", "\\\"").replace("\n", " ");
+
+                    binding.mapWebView.evaluateJavascript("addZone('" + zoneType + "', " + lat + ", " + lng + ", '" + safeTitle + "', '" + safeDesc + "', " + rad + ");", null);
+                }
+            }
+        }
+
+        // 2. Real-time dynamic threat clustering from instant SOS broadcasts
+        if (cachedSosSnapshots != null) {
+            long now = System.currentTimeMillis();
+            long oneMonthAgo = now - (30L * 24 * 60 * 60 * 1000);
+            List<DocumentSnapshot> allDocs = cachedSosSnapshots.getDocuments();
+
+            // Structure to hold aggregated clusters
+            class ThreatCluster {
+                double lat, lng;
+                int count1Month = 0;
+                int countTotal = 0;
+                boolean isDanger = false;
+                boolean isModerate = false;
+            }
+
+            List<ThreatCluster> evaluatedClusters = new ArrayList<>();
+
+            for (DocumentSnapshot doc : allDocs) {
+                Double lat = doc.getDouble("latitude");
+                Double lng = doc.getDouble("longitude");
+                if (lat == null || lng == null) continue;
+
+                // Density calculation within 100 meters radius
+                int c1M = 0;
+                int cTot = 0;
+
+                for (DocumentSnapshot other : allDocs) {
+                    Double oLat = other.getDouble("latitude");
+                    Double oLng = other.getDouble("longitude");
+                    Long oTime = other.getLong("timestamp");
+
+                    if (oLat != null && oLng != null) {
+                        float[] dist = new float[1];
+                        Location.distanceBetween(lat, lng, oLat, oLng, dist);
+
+                        // Within 100 meters
+                        if (dist[0] <= 100) {
+                            cTot++;
+                            if (oTime != null && oTime >= oneMonthAgo) {
+                                c1M++;
+                            }
+                        }
+                    }
+                }
+
+                // Rule: If in 100m radius, last 1 month >= 7 OR total >= 15 -> DANGER ZONE (2 KM / 2000m)
+                boolean danger = (c1M >= 7 || cTot >= 15);
+                boolean moderate = (!danger && (c1M >= 3 || cTot >= 6));
+
+                // Deduplicate nearby centers (within 200m) so multiple SOS in same 100m spot don't draw redundant circles
+                ThreatCluster matched = null;
+                for (ThreatCluster tc : evaluatedClusters) {
+                    float[] dist = new float[1];
+                    Location.distanceBetween(lat, lng, tc.lat, tc.lng, dist);
+                    if (dist[0] <= 200) {
+                        matched = tc;
+                        break;
+                    }
+                }
+
+                if (matched != null) {
+                    if (c1M > matched.count1Month) matched.count1Month = c1M;
+                    if (cTot > matched.countTotal) matched.countTotal = cTot;
+                    if (danger) matched.isDanger = true;
+                    if (moderate && !matched.isDanger) matched.isModerate = true;
+                } else {
+                    ThreatCluster tc = new ThreatCluster();
+                    tc.lat = lat;
+                    tc.lng = lng;
+                    tc.count1Month = c1M;
+                    tc.countTotal = cTot;
+                    tc.isDanger = danger;
+                    tc.isModerate = moderate;
+                    evaluatedClusters.add(tc);
+                }
+            }
+
+            // Draw evaluated clusters
+            for (ThreatCluster tc : evaluatedClusters) {
+                if (tc.isDanger) {
+                    String label = "🚨 2 KM DANGER ZONE (High Incident Frequency)";
+                    String details = "Critical Risk Area: " + tc.count1Month + " SOS in past month (" + tc.countTotal + " total within 100m). Full 2 KM area designated as Danger Zone.";
+                    binding.mapWebView.evaluateJavascript("addZone('RED', " + tc.lat + ", " + tc.lng + ", '" + label + "', '" + details + "', 2000);", null);
+                } else if (tc.isModerate) {
+                    String label = "🟡 MODERATE RISK ZONE (1 KM Radius)";
+                    String details = "Elevated Alert Activity: " + tc.count1Month + " SOS in past month (" + tc.countTotal + " total within 100m).";
+                    binding.mapWebView.evaluateJavascript("addZone('YELLOW', " + tc.lat + ", " + tc.lng + ", '" + label + "', '" + details + "', 1000);", null);
+                }
+            }
+
+            // Draw standalone active SOS broadcasts (not already part of a 2km danger cluster)
+            for (DocumentSnapshot doc : allDocs) {
+                if ("ACTIVE_DANGER".equalsIgnoreCase(doc.getString("status"))) {
+                    Double lat = doc.getDouble("latitude");
+                    Double lng = doc.getDouble("longitude");
+                    if (lat == null || lng == null) continue;
+
+                    boolean insideDangerCluster = false;
+                    for (ThreatCluster tc : evaluatedClusters) {
+                        if (tc.isDanger) {
+                            float[] dist = new float[1];
+                            Location.distanceBetween(lat, lng, tc.lat, tc.lng, dist);
+                            if (dist[0] <= 2000) {
+                                insideDangerCluster = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!insideDangerCluster) {
+                        String name = doc.getString("userName");
+                        String phone = doc.getString("phone");
+                        String label = "🔴 ACTIVE EMERGENCY SOS";
+                        String details = "Victim: " + (name != null ? name : "Emergency Victim") + " | Phone: " + (phone != null ? phone : "N/A");
+                        binding.mapWebView.evaluateJavascript("addZone('RED', " + lat + ", " + lng + ", '" + label + "', '" + details + "', 1000);", null);
+                    }
+                }
+            }
+        }
+
+        binding.mapWebView.evaluateJavascript("filterZones('" + activeFilter + "');", null);
     }
 
     @Override
@@ -356,7 +556,7 @@ public class MapRadarFragment extends Fragment implements LocationListener {
         super.onDestroyView();
         if (locationManager != null) locationManager.removeUpdates(this);
         if (customZonesListener != null) customZonesListener.remove();
-        if (emergencyRadarListener != null) emergencyRadarListener.remove();
+        if (activeSosListener != null) activeSosListener.remove();
         binding = null;
     }
 }

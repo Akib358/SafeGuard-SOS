@@ -18,6 +18,7 @@
         android:orientation="vertical"
         android:padding="14dp">
 
+        <!-- Top Header: Badge + Full Date, Year and Time -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -33,7 +34,7 @@
                 android:paddingVertical="3dp"
                 android:text="🚨 GUARDIAN ALERT"
                 android:textColor="#FFFFFF"
-                android:textSize="11sp"
+                android:textSize="10sp"
                 android:textStyle="bold" />
 
             <View
@@ -41,15 +42,18 @@
                 android:layout_height="1dp"
                 android:layout_weight="1" />
 
+            <!-- Date, Year & Time at Top -->
             <TextView
                 android:id="@+id/tvNotifTime"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Just now"
-                android:textColor="#8E8EA8"
-                android:textSize="11sp" />
+                android:text="07 Oct 2026, 02:30 AM"
+                android:textColor="#A0A0BA"
+                android:textSize="11sp"
+                android:textStyle="bold" />
         </LinearLayout>
 
+        <!-- Notification Title -->
         <TextView
             android:id="@+id/tvNotifTitle"
             android:layout_width="wrap_content"
@@ -60,15 +64,40 @@
             android:textSize="15sp"
             android:textStyle="bold" />
 
+        <!-- Phone & Distance Info -->
         <TextView
-            android:id="@+id/tvNotifDesc"
+            android:id="@+id/tvNotifPhone"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="3dp"
             android:text="Sender: 017XXXXXXXX • Distance: Calculating..."
-            android:textColor="#B0B0C8"
-            android:textSize="13sp" />
+            android:textColor="#8F8FA8"
+            android:textSize="12sp" />
 
+        <!-- Full Story / Incident Description / Safe Note -->
+        <TextView
+            android:id="@+id/tvNotifDesc"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:background="#222234"
+            android:padding="8dp"
+            android:text="📝 Incident Status: Emergency SOS active."
+            android:textColor="#E0E0F0"
+            android:textSize="12sp" />
+
+        <!-- Message count info -->
+        <TextView
+            android:id="@+id/tvNotifChatInfo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="💬 0 Rescue Discussion Messages"
+            android:textColor="#00E676"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <!-- Action Buttons -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -77,14 +106,26 @@
             android:orientation="horizontal">
 
             <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnJoinChat"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="wrap_content"
+                android:layout_height="38dp"
+                android:layout_marginEnd="8dp"
+                android:backgroundTint="#2E2E48"
+                android:text="💬 Rescue Chat"
+                android:textColor="#448AFF"
+                android:textSize="11sp"
+                app:cornerRadius="10dp" />
+
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnNavigateRoute"
                 style="@style/Widget.Material3.Button.TonalButton"
                 android:layout_width="wrap_content"
                 android:layout_height="38dp"
                 android:backgroundTint="#2E2E48"
-                android:text="📍 Shortest Route &amp; Distance"
-                android:textColor="#448AFF"
-                android:textSize="12sp"
+                android:text="📍 Shortest Route"
+                android:textColor="#00E676"
+                android:textSize="11sp"
                 app:cornerRadius="10dp" />
         </LinearLayout>
 

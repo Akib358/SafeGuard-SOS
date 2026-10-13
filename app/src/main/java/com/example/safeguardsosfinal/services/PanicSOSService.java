@@ -18,17 +18,14 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.IBinder;
 import android.telephony.SmsManager;
-import android.telephony.SubscriptionInfo;
-import android.telephony.SubscriptionManager;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 
-import com.example.safeguardsosfinal.R;
-import com.example.safeguardsosfinal.network.FirebaseManager;
 import com.example.safeguardsosfinal.ui.MainActivity;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentChange;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
@@ -36,19 +33,25 @@ import com.google.firebase.firestore.ListenerRegistration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class PanicSOSService extends Service {
 
     private static final String CHANNEL_ID = "SafeGuard_SOS_Foreground_Channel";
-    private static final String CHANNEL_GUARDIAN = "CHANNEL_GUARDIAN_CRITICAL"; // গার্ডিয়ান চ্যানেল (সাইরেন সাউন্ড)
-    private static final String CHANNEL_RADAR = "CHANNEL_RADAR_1KM";            // রেডার চ্যানেল (স্ট্যান্ডার্ড এলার্ম)
+    private static final String CHANNEL_GUARDIAN = "CHANNEL_GUARDIAN_CRITICAL";
+    private static final String CHANNEL_RADAR = "CHANNEL_RADAR_1KM";
     private ListenerRegistration radarListener;
+
+    private static final Set<String> notifiedAlertIds = new HashSet<>();
+    private long serviceStartTime = 0;
 
     @Override
     public void onCreate() {
         super.onCreate();
+        serviceStartTime = System.currentTimeMillis();
         createNotificationChannels();
         startForeground(1001, buildForegroundNotification("SafeGuard Protection Active"));
         listenForProximityAndGuardianAlerts();
@@ -57,40 +60,101 @@ public class PanicSOSService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null && "TRIGGER_PANIC_SOS".equals(intent.getAction())) {
-            executePanicProtocol();
+            double extraLat = intent.getDoubleExtra("latitude", Double.NaN);
+            double extraLng = intent.getDoubleExtra("longitude", Double.NaN);
+            executePanicProtocol(extraLat, extraLng);
         }
         return START_STICKY;
     }
 
-    private void executePanicProtocol() {
-        Location location = getLastKnownLocation();
-        double lat = location != null ? location.getLatitude() : 23.8759;
-        double lng = location != null ? location.getLongitude() : 90.3795;
+    private void executePanicProtocol(double passedLat, double passedLng) {
+        double lat = !Double.isNaN(passedLat) ? passedLat : 23.8759;
+        double lng = !Double.isNaN(passedLng) ? passedLng : 90.3795;
+
+        if (Double.isNaN(passedLat) || Double.isNaN(passedLng)) {
+            Location location = getLastKnownLocation();
+            if (location != null) {
+                lat = location.getLatitude();
+                lng = location.getLongitude();
+            }
+        }
 
         SharedPreferences sp = getSharedPreferences("SafeGuardContacts", MODE_PRIVATE);
         String savedNumbers = sp.getString("trusted_numbers_list", "");
         List<String> guardiansList = Arrays.asList(savedNumbers.split(","));
 
-        // ক্লাউড ডেটাবেজে গার্ডিয়ান লিস্ট সহ ব্রডকাস্ট পাঠানো
         String alertId = "sos_" + System.currentTimeMillis();
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        String currentUid = user != null ? user.getUid() : "unknown";
+
+        SharedPreferences userSp = getSharedPreferences("SafeGuardUser", MODE_PRIVATE);
+        String currentPhone = userSp.getString("user_phone", "");
+        String currentName = userSp.getString("user_name", "");
+
+        if (user != null) {
+            if (currentName.isEmpty() && user.getDisplayName() != null && !user.getDisplayName().isEmpty()) {
+                currentName = user.getDisplayName();
+            }
+            if (currentPhone.isEmpty() && user.getPhoneNumber() != null && !user.getPhoneNumber().isEmpty()) {
+                currentPhone = user.getPhoneNumber();
+            }
+        }
+        if (currentName.isEmpty()) currentName = "SafeGuard Victim";
+        if (currentPhone.isEmpty()) currentPhone = "N/A";
+
+        // Prevent self-notification: add alertId to notified list immediately
+        notifiedAlertIds.add(alertId);
+        notifiedAlertIds.add(alertId + "_radar");
+        notifiedAlertIds.add(alertId + "_guardian");
+
         Map<String, Object> sosData = new HashMap<>();
         sosData.put("alertId", alertId);
-        sosData.put("userId", FirebaseAuth.getInstance().getUid());
-        sosData.put("userName", "SafeGuard User");
-        sosData.put("phone", getSharedPreferences("SafeGuardUser", MODE_PRIVATE).getString("user_phone", "Unknown"));
+        sosData.put("userId", currentUid);
+        sosData.put("userName", currentName);
+        sosData.put("phone", currentPhone);
         sosData.put("latitude", lat);
         sosData.put("longitude", lng);
         sosData.put("timestamp", System.currentTimeMillis());
         sosData.put("status", "ACTIVE_DANGER");
+        sosData.put("messageCount", 0);
+        sosData.put("safeNote", "");
         sosData.put("trustedGuardians", guardiansList);
 
         FirebaseFirestore.getInstance().collection("emergency_broadcasts").document(alertId).set(sosData);
 
-        // ট্রাস্টেড নাম্বারে জিপিএস সহ এসএমএস পাঠানো
+        // Evaluate if this location meets the 100m 7/15 SOS rule and update safety_zones in database
+        com.example.safeguardsosfinal.network.FirebaseManager.getInstance().evaluateAndSyncDangerZonesToFirestore(lat, lng);
+
+        // If phone or name was not in local cache, fetch from Firestore users collection and update document
+        if ("SafeGuard Victim".equals(currentName) || "N/A".equals(currentPhone)) {
+            if (user != null) {
+                FirebaseFirestore.getInstance().collection("users").document(user.getUid()).get()
+                        .addOnSuccessListener(doc -> {
+                            if (doc != null && doc.exists()) {
+                                String n = doc.getString("name");
+                                String p = doc.getString("phone");
+                                Map<String, Object> updates = new HashMap<>();
+                                if (n != null && !n.isEmpty()) {
+                                    updates.put("userName", n);
+                                    userSp.edit().putString("user_name", n).apply();
+                                }
+                                if (p != null && !p.isEmpty()) {
+                                    updates.put("phone", p);
+                                    userSp.edit().putString("user_phone", p).apply();
+                                }
+                                if (!updates.isEmpty()) {
+                                    FirebaseFirestore.getInstance().collection("emergency_broadcasts").document(alertId).update(updates);
+                                }
+                            }
+                        });
+            }
+        }
+
+        // Send SMS with GPS coordinates
         String mapLink = "https://maps.google.com/?q=" + lat + "," + lng;
         sendSmsToTrustedContacts("EMERGENCY SOS ALERT! I am in critical danger. Live GPS: " + mapLink);
 
-        // ৯৯৯ ডায়ালারে পাঠানো
+        // Direct 999 Dialer
         if (getSharedPreferences("SafeGuardSettings", MODE_PRIVATE).getBoolean("auto_call_999", true)) {
             trigger999EmergencyDial();
         }
@@ -105,9 +169,36 @@ public class PanicSOSService extends Service {
                 .addSnapshotListener((snapshots, e) -> {
                     if (e != null || snapshots == null) return;
                     Location myLoc = getLastKnownLocation();
+                    String myUid = FirebaseAuth.getInstance().getUid();
 
                     for (DocumentChange dc : snapshots.getDocumentChanges()) {
                         if (dc.getType() == DocumentChange.Type.ADDED) {
+                            String alertId = dc.getDocument().getString("alertId");
+                            if (alertId == null) alertId = dc.getDocument().getId();
+                            Long timestamp = dc.getDocument().getLong("timestamp");
+                            String userId = dc.getDocument().getString("userId");
+                            String docPhone = dc.getDocument().getString("phone");
+
+                            // Ignore own alerts (by userId and by phone)
+                            if (userId != null && myUid != null && userId.equals(myUid)) {
+                                continue;
+                            }
+                            if (docPhone != null && !myPhone.isEmpty() && docPhone.equals(myPhone)) {
+                                continue;
+                            }
+
+                            // Anti-Spam: Past alerts created before app launch should NOT spam the phone lockscreen
+                            if (timestamp == null || timestamp < (serviceStartTime - 45000)) {
+                                notifiedAlertIds.add(alertId);
+                                continue;
+                            }
+
+                            // Already notified this alert
+                            if (notifiedAlertIds.contains(alertId)) {
+                                continue;
+                            }
+                            notifiedAlertIds.add(alertId);
+
                             Double lat = dc.getDocument().getDouble("latitude");
                             Double lng = dc.getDocument().getDouble("longitude");
                             String sender = dc.getDocument().getString("userName");
@@ -115,27 +206,26 @@ public class PanicSOSService extends Service {
 
                             if (lat != null && lng != null) {
                                 boolean isMyGuardian = (guardians != null && !myPhone.isEmpty() && guardians.contains(myPhone));
+                                int stableNotifId = Math.abs(alertId.hashCode());
 
                                 if (isMyGuardian) {
-                                    // ১. আমাকে যে ইমার্জেন্সিতে যুক্ত করেছে তার উচ্চ-তীব্রতার সাইরেন নোটিফিকেশন
                                     showHeadsUpNotification(
                                             CHANNEL_GUARDIAN,
-                                            "🚨 GUARDIAN SOS: " + sender + " Needs Help!",
+                                            "🚨 GUARDIAN SOS: " + (sender != null ? sender : "Emergency Victim") + " Needs Help!",
                                             "Tap for shortest navigation route to their exact location.",
-                                            lat, lng, 101
+                                            lat, lng, stableNotifId
                                     );
                                 } else if (myLoc != null) {
                                     Location vicLoc = new Location("Vic");
                                     vicLoc.setLatitude(lat);
                                     vicLoc.setLongitude(lng);
                                     float dist = myLoc.distanceTo(vicLoc);
-                                    if (dist <= 1000) {
-                                        // ২. ১ কিমি রেডিয়াসের জন্য এলাকার নোটিফিকেশন
+                                    if (dist <= 1500) {
                                         showHeadsUpNotification(
                                                 CHANNEL_RADAR,
-                                                "⚠️ 1KM Radar: Danger Alert Nearby!",
+                                                "⚠️ 1.5KM Radar: Danger Alert Nearby!",
                                                 "Someone triggered SOS ~" + ((int) dist) + "m away. Tap for route.",
-                                                lat, lng, 102
+                                                lat, lng, stableNotifId
                                         );
                                     }
                                 }
@@ -161,7 +251,9 @@ public class PanicSOSService extends Service {
                 .build();
 
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        if (nm != null) nm.notify(notifId + (int) System.currentTimeMillis(), notification);
+        if (nm != null) {
+            nm.notify(notifId, notification);
+        }
     }
 
     private void sendSmsToTrustedContacts(String message) {
@@ -220,7 +312,7 @@ public class PanicSOSService extends Service {
                     .setUsage(AudioAttributes.USAGE_ALARM)
                     .build();
 
-            // চ্যানেল ১: গার্ডিয়ান অ্যালার্ট (সাইরেন বা এলার্ম রিংটোন সাউন্ড)
+            // Channel 1: Guardian Alert (Critical)
             NotificationChannel guardianChannel = new NotificationChannel(
                     CHANNEL_GUARDIAN,
                     "Guardian Direct SOS (Critical)",
@@ -229,16 +321,16 @@ public class PanicSOSService extends Service {
             guardianChannel.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM), audioAttributes);
             guardianChannel.enableVibration(true);
 
-            // চ্যানেল ২: ১ কিমি এরিয়া রেডার অ্যালার্ট (নোটিফিকেশন সাউন্ড)
+            // Channel 2: Proximity Radar Alert
             NotificationChannel radarChannel = new NotificationChannel(
                     CHANNEL_RADAR,
-                    "1KM Proximity Radar Alert",
+                    "1.5KM Proximity Radar Alert",
                     NotificationManager.IMPORTANCE_HIGH
             );
             radarChannel.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION), audioAttributes);
             radarChannel.enableVibration(true);
 
-            // ব্যাকগ্রাউন্ড সার্ভিস চ্যানেল
+            // Background Service Channel
             NotificationChannel serviceChannel = new NotificationChannel(
                     CHANNEL_ID,
                     "Background Defense Service",

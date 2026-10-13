@@ -61,14 +61,19 @@ public class NotificationsFragment extends Fragment {
     }
 
     private void listenToIncomingAlerts() {
+        if (getContext() == null) return;
         SharedPreferences sp = requireContext().getSharedPreferences("SafeGuardUser", Context.MODE_PRIVATE);
         String myPhone = sp.getString("user_phone", "");
+        String myUid = FirebaseAuth.getInstance().getCurrentUser() != null ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+
+        // 6 months retention window (180 days)
+        long sixMonthsAgo = System.currentTimeMillis() - (180L * 24 * 60 * 60 * 1000);
 
         notifListener = FirebaseFirestore.getInstance().collection("emergency_broadcasts")
-                .whereEqualTo("status", "ACTIVE_DANGER")
+                .whereGreaterThanOrEqualTo("timestamp", sixMonthsAgo)
                 .orderBy("timestamp", Query.Direction.DESCENDING)
                 .addSnapshotListener((snapshots, error) -> {
-                    if (error != null || snapshots == null || binding == null) return;
+                    if (error != null || snapshots == null || binding == null || getContext() == null) return;
 
                     List<SOSNotification> guardianAlerts = new ArrayList<>();
                     List<SOSNotification> radarAlerts = new ArrayList<>();
@@ -77,10 +82,25 @@ public class NotificationsFragment extends Fragment {
                         String id = doc.getString("alertId");
                         String name = doc.getString("userName");
                         String phone = doc.getString("phone");
+                        String userId = doc.getString("userId");
                         Double lat = doc.getDouble("latitude");
                         Double lng = doc.getDouble("longitude");
                         Long time = doc.getLong("timestamp");
+                        String status = doc.getString("status");
+                        String safeNote = doc.getString("safeNote");
+                        Long resolvedTime = doc.getLong("resolvedTimestamp");
                         List<String> targetGuardians = (List<String>) doc.get("trustedGuardians");
+
+                        // Exclude victim's own alerts from incoming notifications list
+                        if (myUid != null && myUid.equals(userId)) {
+                            continue;
+                        }
+                        if (phone != null && !myPhone.isEmpty() && phone.equals(myPhone)) {
+                            continue;
+                        }
+
+                        Long msgCount = doc.getLong("messageCount");
+                        int totalMessages = msgCount != null ? msgCount.intValue() : 0;
 
                         if (lat != null && lng != null && time != null) {
                             boolean isMyGuardianAlert = false;
@@ -89,35 +109,32 @@ public class NotificationsFragment extends Fragment {
                             }
 
                             SOSNotification item = new SOSNotification(
-                                    id,
-                                    name != null ? name : "Emergency Contact",
-                                    phone != null ? phone : "Unknown",
-                                    lat, lng, time, isMyGuardianAlert
+                                    id != null ? id : doc.getId(),
+                                    (name != null && !name.isEmpty() ? name : "Emergency Victim"),
+                                    (phone != null ? phone : "Unknown"),
+                                    lat,
+                                    lng,
+                                    time,
+                                    isMyGuardianAlert,
+                                    (status != null ? status : "ACTIVE_DANGER"),
+                                    (safeNote != null ? safeNote : ""),
+                                    totalMessages,
+                                    (resolvedTime != null ? resolvedTime : 0L)
                             );
 
                             if (isMyGuardianAlert) {
-                                guardianAlerts.add(item); // প্রায়োরিটি ১: ডিরেক্ট গার্ডিয়ান
+                                guardianAlerts.add(item);
                             } else {
-                                // ১ কিমি এর ভেতরে আছে কিনা চেক
-                                if (myLocation != null) {
-                                    Location vicLoc = new Location("Vic");
-                                    vicLoc.setLatitude(lat);
-                                    vicLoc.setLongitude(lng);
-                                    if (myLocation.distanceTo(vicLoc) <= 1500) {
-                                        radarAlerts.add(item); // প্রায়োরিটি ২: এলাকার রেডার অ্যালার্ট
-                                    }
-                                } else {
-                                    radarAlerts.add(item);
-                                }
+                                radarAlerts.add(item);
                             }
                         }
                     }
 
                     notifList.clear();
-                    notifList.addAll(guardianAlerts); // আগে গার্ডিয়ান অ্যালার্ট বসবে
-                    notifList.addAll(radarAlerts);    // নিচে এলাকার অ্যালার্ট বসবে
+                    notifList.addAll(guardianAlerts);
+                    notifList.addAll(radarAlerts);
 
-                    binding.tvCountBadge.setText(notifList.size() + " ACTIVE ALERTS");
+                    binding.tvCountBadge.setText(notifList.size() + " TOTAL ALERTS");
                     binding.rvNotifications.setAdapter(new SOSNotificationAdapter(getContext(), notifList, myLocation));
                 });
     }

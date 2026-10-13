@@ -19,6 +19,7 @@
 
             <!-- Realtime Live Location Card -->
             <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardLiveLocation"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 app:cardBackgroundColor="#161622"
@@ -124,11 +125,16 @@
                 android:layout_marginTop="12dp"
                 android:orientation="horizontal">
 
+                <!-- Left Card: Active SOS -->
                 <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardActiveSosStats"
                     android:layout_width="0dp"
                     android:layout_height="100dp"
                     android:layout_marginEnd="6dp"
                     android:layout_weight="1"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:foreground="?attr/selectableItemBackground"
                     app:cardBackgroundColor="#161622"
                     app:cardCornerRadius="12dp"
                     app:strokeColor="#2E2E40"
@@ -159,11 +165,16 @@
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
+                <!-- Right Card: Safe Zones (Calculated dynamically based on user's current GPS location) -->
                 <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardSafeZonesStats"
                     android:layout_width="0dp"
                     android:layout_height="100dp"
                     android:layout_marginStart="6dp"
                     android:layout_weight="1"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:foreground="?attr/selectableItemBackground"
                     app:cardBackgroundColor="#161622"
                     app:cardCornerRadius="12dp"
                     app:strokeColor="#2E2E40"
@@ -180,14 +191,16 @@
                             android:id="@+id/tvRegisteredSafeZones"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="0"
+                            android:gravity="center"
+                            android:text="SAFE ZONE"
                             android:textColor="#00E676"
-                            android:textSize="22sp"
+                            android:textSize="15sp"
                             android:textStyle="bold" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
                             android:text="Safe Zones"
                             android:textColor="#A0A0B5"
                             android:textSize="12sp" />

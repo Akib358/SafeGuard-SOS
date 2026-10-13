@@ -56,9 +56,36 @@ public class LoginActivity extends AppCompatActivity {
 
         auth.signInWithEmailAndPassword(email, password)
                 .addOnSuccessListener(authResult -> {
-                    binding.loginProgressBar.setVisibility(View.GONE);
-                    Toast.makeText(LoginActivity.this, "Login Successful!", Toast.LENGTH_SHORT).show();
-                    goToMainActivity();
+                    FirebaseUser user = auth.getCurrentUser();
+                    if (user != null) {
+                        com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                                .collection("users").document(user.getUid()).get()
+                                .addOnSuccessListener(doc -> {
+                                    if (doc != null && doc.exists()) {
+                                        String name = doc.getString("name");
+                                        String phone = doc.getString("phone");
+                                        String blood = doc.getString("bloodGroup");
+                                        android.content.SharedPreferences sp = getSharedPreferences("SafeGuardUser", MODE_PRIVATE);
+                                        sp.edit()
+                                                .putString("user_name", name != null ? name : "")
+                                                .putString("user_phone", phone != null ? phone : "")
+                                                .putString("user_blood", blood != null ? blood : "")
+                                                .apply();
+                                    }
+                                    binding.loginProgressBar.setVisibility(View.GONE);
+                                    Toast.makeText(LoginActivity.this, "Login Successful!", Toast.LENGTH_SHORT).show();
+                                    goToMainActivity();
+                                })
+                                .addOnFailureListener(e -> {
+                                    binding.loginProgressBar.setVisibility(View.GONE);
+                                    Toast.makeText(LoginActivity.this, "Login Successful!", Toast.LENGTH_SHORT).show();
+                                    goToMainActivity();
+                                });
+                    } else {
+                        binding.loginProgressBar.setVisibility(View.GONE);
+                        Toast.makeText(LoginActivity.this, "Login Successful!", Toast.LENGTH_SHORT).show();
+                        goToMainActivity();
+                    }
                 })
                 .addOnFailureListener(e -> {
                     binding.loginProgressBar.setVisibility(View.GONE);

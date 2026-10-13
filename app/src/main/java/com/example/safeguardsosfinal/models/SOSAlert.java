@@ -9,6 +9,9 @@ public class SOSAlert {
     private double longitude;
     private String status;
     private long timestamp;
+    private String safeNote;
+    private long resolvedTimestamp;
+    private int messageCount;
 
     public SOSAlert() {}
 
@@ -21,6 +24,7 @@ public class SOSAlert {
         this.longitude = longitude;
         this.status = status;
         this.timestamp = timestamp;
+        this.messageCount = 0;
     }
 
     public SOSAlert(String alertId, String userId, double latitude, double longitude, long timestamp) {
@@ -29,72 +33,42 @@ public class SOSAlert {
         this.latitude = latitude;
         this.longitude = longitude;
         this.timestamp = timestamp;
-        this.status = "Active";
+        this.status = "ACTIVE";
         this.userName = "Unknown";
         this.userPhone = "Unknown";
+        this.messageCount = 0;
     }
 
-    public String getAlertId() {
-        return alertId;
-    }
+    public String getAlertId() { return alertId; }
+    public void setAlertId(String alertId) { this.alertId = alertId; }
 
-    public void setAlertId(String alertId) {
-        this.alertId = alertId;
-    }
+    public String getUserId() { return userId; }
+    public void setUserId(String userId) { this.userId = userId; }
 
-    public String getUserId() {
-        return userId;
-    }
+    public String getUserName() { return userName; }
+    public void setUserName(String userName) { this.userName = userName; }
 
-    public void setUserId(String userId) {
-        this.userId = userId;
-    }
+    public String getUserPhone() { return userPhone; }
+    public void setUserPhone(String userPhone) { this.userPhone = userPhone; }
 
-    public String getUserName() {
-        return userName;
-    }
+    public double getLatitude() { return latitude; }
+    public void setLatitude(double latitude) { this.latitude = latitude; }
 
-    public void setUserName(String userName) {
-        this.userName = userName;
-    }
+    public double getLongitude() { return longitude; }
+    public void setLongitude(double longitude) { this.longitude = longitude; }
 
-    public String getUserPhone() {
-        return userPhone;
-    }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 
-    public void setUserPhone(String userPhone) {
-        this.userPhone = userPhone;
-    }
+    public long getTimestamp() { return timestamp; }
+    public void setTimestamp(long timestamp) { this.timestamp = timestamp; }
 
-    public double getLatitude() {
-        return latitude;
-    }
+    public String getSafeNote() { return safeNote; }
+    public void setSafeNote(String safeNote) { this.safeNote = safeNote; }
 
-    public void setLatitude(double latitude) {
-        this.latitude = latitude;
-    }
+    public long getResolvedTimestamp() { return resolvedTimestamp; }
+    public void setResolvedTimestamp(long resolvedTimestamp) { this.resolvedTimestamp = resolvedTimestamp; }
 
-    public double getLongitude() {
-        return longitude;
-    }
-
-    public void setLongitude(double longitude) {
-        this.longitude = longitude;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    public long getTimestamp() {
-        return timestamp;
-    }
-
-    public void setTimestamp(long timestamp) {
-        this.timestamp = timestamp;
-    }
+    public int getMessageCount() { return messageCount; }
+    public void setMessageCount(int messageCount) { this.messageCount = messageCount; }
 }
