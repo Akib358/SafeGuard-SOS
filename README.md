@@ -83,7 +83,8 @@ With real-time GPS tracking, hardware-accelerated mapping, dynamic high-risk thr
 ## 📥 Download APK
 
 Get the latest stable release of the application:
-- 📦 **Download Version 2.2**: [SafeGuard.SOS.apk](https://github.com/Akib358/SafeGuard-SOS/releases/tag/SafeGuard_SOS--V2.2)
+- 📦 **Download Version 2.2 (Latest)**: [SafeGuard.SOS-v2.2.apk](https://github.com/Akib358/SafeGuard-SOS/releases)
+- 📦 **Download Version 2.1**: [SafeGuard.SOS.apk](https://github.com/Akib358/SafeGuard-SOS/releases)
 
 ---
 

@@ -262,32 +262,27 @@ public class FirebaseManager {
             final boolean staticDanger = inDangerZone;
             final boolean staticModerate = inModerateZone;
 
+            // Only consider currently active emergency broadcasts (status == ACTIVE_DANGER)
             db.collection("emergency_broadcasts")
+                    .whereEqualTo("status", "ACTIVE_DANGER")
                     .get()
                     .addOnSuccessListener(snapshots -> {
                         int activeNearbyDangerCount = 0;
                         int activeCautionCount = 0;
                         Set<String> uniqueVictims = new HashSet<>();
-                        boolean dynamicDangerFromCluster = false;
-                        boolean dynamicModerateFromCluster = false;
 
-                        long now = System.currentTimeMillis();
-                        long oneMonthAgo = now - (30L * 24 * 60 * 60 * 1000);
-                        List<DocumentSnapshot> allDocs = snapshots.getDocuments();
+                        if (snapshots != null) {
+                            for (DocumentSnapshot doc : snapshots.getDocuments()) {
+                                Double lat = doc.getDouble("latitude");
+                                Double lng = doc.getDouble("longitude");
+                                String uid = doc.getString("userId");
 
-                        for (DocumentSnapshot doc : allDocs) {
-                            Double lat = doc.getDouble("latitude");
-                            Double lng = doc.getDouble("longitude");
-                            String status = doc.getString("status");
-                            String uid = doc.getString("userId");
+                                if (lat == null || lng == null) continue;
 
-                            if (lat == null || lng == null) continue;
+                                float[] distUser = new float[1];
+                                Location.distanceBetween(currentLat, currentLng, lat, lng, distUser);
 
-                            float[] distUser = new float[1];
-                            Location.distanceBetween(currentLat, currentLng, lat, lng, distUser);
-
-                            // Active danger nearby
-                            if ("ACTIVE_DANGER".equalsIgnoreCase(status)) {
+                                // Active danger nearby (within 1.5 KM)
                                 if (distUser[0] <= 1500) {
                                     activeNearbyDangerCount++;
                                     if (uid != null) uniqueVictims.add(uid);
@@ -295,43 +290,12 @@ public class FirebaseManager {
                                     activeCautionCount++;
                                 }
                             }
-
-                            // Density calculation within 100m radius of this SOS point
-                            int count1M = 0;
-                            int countTot = 0;
-                            for (DocumentSnapshot other : allDocs) {
-                                Double oLat = other.getDouble("latitude");
-                                Double oLng = other.getDouble("longitude");
-                                Long oTime = other.getLong("timestamp");
-
-                                if (oLat != null && oLng != null) {
-                                    float[] distCluster = new float[1];
-                                    Location.distanceBetween(lat, lng, oLat, oLng, distCluster);
-                                    if (distCluster[0] <= 100) {
-                                        countTot++;
-                                        if (oTime != null && oTime >= oneMonthAgo) {
-                                            count1M++;
-                                        }
-                                    }
-                                }
-                            }
-
-                            // 100m 7/15 SOS rule -> 2 KM Danger Zone
-                            if (count1M >= 7 || countTot >= 15) {
-                                if (distUser[0] <= 2000) {
-                                    dynamicDangerFromCluster = true;
-                                }
-                            } else if (count1M >= 3 || countTot >= 6) {
-                                if (distUser[0] <= 1000) {
-                                    dynamicModerateFromCluster = true;
-                                }
-                            }
                         }
 
                         String zone = "SAFE";
-                        if (staticDanger || dynamicDangerFromCluster || activeNearbyDangerCount > 0) {
+                        if (staticDanger || activeNearbyDangerCount > 0) {
                             zone = "DANGER";
-                        } else if (staticModerate || dynamicModerateFromCluster || activeCautionCount > 0) {
+                        } else if (staticModerate || activeCautionCount > 0) {
                             zone = "MODERATE";
                         }
 
@@ -346,144 +310,18 @@ public class FirebaseManager {
         });
     }
 
-    // Evaluate 100m cluster for specific SOS location and save/update into safety_zones in Firestore
-    public void evaluateAndSyncDangerZonesToFirestore(double triggerLat, double triggerLng) {
-        db.collection("emergency_broadcasts")
+    // Clean up any auto-generated danger zone documents from safety_zones collection in database
+    public void cleanupAutoGeneratedSafetyZones() {
+        db.collection("safety_zones")
                 .get()
                 .addOnSuccessListener(snapshots -> {
-                    if (snapshots == null || snapshots.isEmpty()) return;
-
-                    long now = System.currentTimeMillis();
-                    long oneMonthAgo = now - (30L * 24 * 60 * 60 * 1000);
-                    int count1M = 0;
-                    int countTot = 0;
-
+                    if (snapshots == null) return;
                     for (DocumentSnapshot doc : snapshots.getDocuments()) {
-                        Double lat = doc.getDouble("latitude");
-                        Double lng = doc.getDouble("longitude");
-                        Long time = doc.getLong("timestamp");
-
-                        if (lat != null && lng != null) {
-                            float[] dist = new float[1];
-                            Location.distanceBetween(triggerLat, triggerLng, lat, lng, dist);
-                            // 100 meters radius
-                            if (dist[0] <= 100) {
-                                countTot++;
-                                if (time != null && time >= oneMonthAgo) {
-                                    count1M++;
-                                }
-                            }
+                        Boolean autoGen = doc.getBoolean("autoGenerated");
+                        String id = doc.getId();
+                        if (Boolean.TRUE.equals(autoGen) || id.startsWith("danger_zone_") || id.startsWith("dynamic_")) {
+                            db.collection("safety_zones").document(id).delete();
                         }
-                    }
-
-                    // Rule: 7+ in last 1 month OR 15+ total in 100m radius -> 2 KM DANGER ZONE in safety_zones
-                    if (count1M >= 7 || countTot >= 15) {
-                        String zoneDocId = "danger_zone_" + String.format(Locale.US, "%.3f_%.3f", triggerLat, triggerLng).replace(".", "_");
-                        Map<String, Object> zoneData = new HashMap<>();
-                        zoneData.put("title", "🚨 CRITICAL DANGER ZONE (2 KM Perimeter)");
-                        zoneData.put("description", "High Incident Frequency: " + count1M + " SOS in past month (" + countTot + " total within 100m cluster). Designated as 2 KM Danger Zone.");
-                        zoneData.put("riskLevel", "DANGER");
-                        zoneData.put("zoneType", "RED");
-                        zoneData.put("latitude", triggerLat);
-                        zoneData.put("longitude", triggerLng);
-                        zoneData.put("radiusInMeters", 2000.0); // 2 KM
-                        zoneData.put("radius", 2000.0);
-                        zoneData.put("autoGenerated", true);
-                        zoneData.put("incidentCount1Month", count1M);
-                        zoneData.put("incidentCountTotal", countTot);
-                        zoneData.put("updatedAt", now);
-
-                        db.collection("safety_zones").document(zoneDocId)
-                                .set(zoneData, SetOptions.merge());
-                    }
-                });
-    }
-
-    // Evaluate all SOS locations across database and save/update any qualifying 100m clusters into safety_zones in Firestore
-    public void evaluateAndSyncAllDangerZones() {
-        db.collection("emergency_broadcasts")
-                .get()
-                .addOnSuccessListener(snapshots -> {
-                    if (snapshots == null || snapshots.isEmpty()) return;
-
-                    long now = System.currentTimeMillis();
-                    long oneMonthAgo = now - (30L * 24 * 60 * 60 * 1000);
-                    List<DocumentSnapshot> allDocs = snapshots.getDocuments();
-
-                    class ClusterRecord {
-                        double lat, lng;
-                        int c1M = 0;
-                        int cTot = 0;
-                    }
-                    List<ClusterRecord> qualifyingClusters = new ArrayList<>();
-
-                    for (DocumentSnapshot doc : allDocs) {
-                        Double lat = doc.getDouble("latitude");
-                        Double lng = doc.getDouble("longitude");
-                        if (lat == null || lng == null) continue;
-
-                        int c1M = 0;
-                        int cTot = 0;
-
-                        for (DocumentSnapshot other : allDocs) {
-                            Double oLat = other.getDouble("latitude");
-                            Double oLng = other.getDouble("longitude");
-                            Long oTime = other.getLong("timestamp");
-
-                            if (oLat != null && oLng != null) {
-                                float[] dist = new float[1];
-                                Location.distanceBetween(lat, lng, oLat, oLng, dist);
-                                if (dist[0] <= 100) {
-                                    cTot++;
-                                    if (oTime != null && oTime >= oneMonthAgo) {
-                                        c1M++;
-                                    }
-                                }
-                            }
-                        }
-
-                        if (c1M >= 7 || cTot >= 15) {
-                            ClusterRecord matched = null;
-                            for (ClusterRecord cr : qualifyingClusters) {
-                                float[] dist = new float[1];
-                                Location.distanceBetween(lat, lng, cr.lat, cr.lng, dist);
-                                if (dist[0] <= 200) {
-                                    matched = cr;
-                                    break;
-                                }
-                            }
-                            if (matched != null) {
-                                if (c1M > matched.c1M) matched.c1M = c1M;
-                                if (cTot > matched.cTot) matched.cTot = cTot;
-                            } else {
-                                ClusterRecord cr = new ClusterRecord();
-                                cr.lat = lat;
-                                cr.lng = lng;
-                                cr.c1M = c1M;
-                                cr.cTot = cTot;
-                                qualifyingClusters.add(cr);
-                            }
-                        }
-                    }
-
-                    for (ClusterRecord cr : qualifyingClusters) {
-                        String zoneDocId = "danger_zone_" + String.format(Locale.US, "%.3f_%.3f", cr.lat, cr.lng).replace(".", "_");
-                        Map<String, Object> zoneData = new HashMap<>();
-                        zoneData.put("title", "🚨 CRITICAL DANGER ZONE (2 KM Perimeter)");
-                        zoneData.put("description", "High Incident Frequency: " + cr.c1M + " SOS in past month (" + cr.cTot + " total within 100m cluster). Designated as 2 KM Danger Zone.");
-                        zoneData.put("riskLevel", "DANGER");
-                        zoneData.put("zoneType", "RED");
-                        zoneData.put("latitude", cr.lat);
-                        zoneData.put("longitude", cr.lng);
-                        zoneData.put("radiusInMeters", 2000.0); // 2 KM
-                        zoneData.put("radius", 2000.0);
-                        zoneData.put("autoGenerated", true);
-                        zoneData.put("incidentCount1Month", cr.c1M);
-                        zoneData.put("incidentCountTotal", cr.cTot);
-                        zoneData.put("updatedAt", now);
-
-                        db.collection("safety_zones").document(zoneDocId)
-                                .set(zoneData, SetOptions.merge());
                     }
                 });
     }

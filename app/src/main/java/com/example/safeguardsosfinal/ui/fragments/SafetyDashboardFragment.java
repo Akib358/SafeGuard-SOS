@@ -55,6 +55,7 @@ public class SafetyDashboardFragment extends Fragment implements LocationListene
     private FragmentSafetyDashboardBinding binding;
     private LocationManager locationManager;
     private ListenerRegistration sosCountListener;
+    private ListenerRegistration safetyZonesListener;
     private ListenerRegistration myActiveSosListener;
     private ListenerRegistration activeChatListener;
 
@@ -495,6 +496,7 @@ public class SafetyDashboardFragment extends Fragment implements LocationListene
     }
 
     private void listenToDashboardCounts() {
+        if (sosCountListener != null) sosCountListener.remove();
         sosCountListener = FirebaseFirestore.getInstance().collection("emergency_broadcasts")
                 .whereEqualTo("status", "ACTIVE_DANGER")
                 .addSnapshotListener((snapshots, error) -> {
@@ -503,6 +505,14 @@ public class SafetyDashboardFragment extends Fragment implements LocationListene
                         if (currentDeviceLocation != null) {
                             updateDynamicThreatRadar(currentDeviceLocation.getLatitude(), currentDeviceLocation.getLongitude());
                         }
+                    }
+                });
+
+        if (safetyZonesListener != null) safetyZonesListener.remove();
+        safetyZonesListener = FirebaseFirestore.getInstance().collection("safety_zones")
+                .addSnapshotListener((snapshots, error) -> {
+                    if (snapshots != null && binding != null && currentDeviceLocation != null) {
+                        updateDynamicThreatRadar(currentDeviceLocation.getLatitude(), currentDeviceLocation.getLongitude());
                     }
                 });
     }
@@ -521,6 +531,7 @@ public class SafetyDashboardFragment extends Fragment implements LocationListene
         super.onDestroyView();
         if (locationManager != null) locationManager.removeUpdates(this);
         if (sosCountListener != null) sosCountListener.remove();
+        if (safetyZonesListener != null) safetyZonesListener.remove();
         if (myActiveSosListener != null) myActiveSosListener.remove();
         if (activeChatListener != null) activeChatListener.remove();
         binding = null;

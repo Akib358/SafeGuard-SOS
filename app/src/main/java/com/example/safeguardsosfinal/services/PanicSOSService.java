@@ -122,9 +122,6 @@ public class PanicSOSService extends Service {
 
         FirebaseFirestore.getInstance().collection("emergency_broadcasts").document(alertId).set(sosData);
 
-        // Evaluate if this location meets the 100m 7/15 SOS rule and update safety_zones in database
-        com.example.safeguardsosfinal.network.FirebaseManager.getInstance().evaluateAndSyncDangerZonesToFirestore(lat, lng);
-
         // If phone or name was not in local cache, fetch from Firestore users collection and update document
         if ("SafeGuard Victim".equals(currentName) || "N/A".equals(currentPhone)) {
             if (user != null) {

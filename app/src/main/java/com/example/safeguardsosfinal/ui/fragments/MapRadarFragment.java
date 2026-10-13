@@ -326,18 +326,17 @@ public class MapRadarFragment extends Fragment implements LocationListener {
                     renderAllMapZones();
                 });
 
-        // 2. Real-time dynamic threat clustering from instant SOS broadcasts
+        // 2. Real-time active SOS broadcasts (only ACTIVE_DANGER)
         activeSosListener = db.collection("emergency_broadcasts")
+                .whereEqualTo("status", "ACTIVE_DANGER")
                 .addSnapshotListener((sosSnapshots, sosError) -> {
                     if (sosError != null || sosSnapshots == null || !isMapLoaded) return;
                     cachedSosSnapshots = sosSnapshots;
                     renderAllMapZones();
-                    com.example.safeguardsosfinal.network.FirebaseManager.getInstance().evaluateAndSyncAllDangerZones();
                 });
     }
 
-    // Synchronize both static zones and calculated dynamic zones based on 100m radius clustering:
-    // Rule: Within 100m radius, if last 1 month SOS >= 7 OR total SOS >= 15 -> 2 KM DANGER ZONE (RED)
+    // Synchronize both static zones from safety_zones and active emergency broadcasts
     private void renderAllMapZones() {
         if (!isMapLoaded || binding == null) return;
 
@@ -417,122 +416,19 @@ public class MapRadarFragment extends Fragment implements LocationListener {
             }
         }
 
-        // 2. Real-time dynamic threat clustering from instant SOS broadcasts
+        // 2. Real-time active SOS broadcasts (only ACTIVE_DANGER)
         if (cachedSosSnapshots != null) {
-            long now = System.currentTimeMillis();
-            long oneMonthAgo = now - (30L * 24 * 60 * 60 * 1000);
-            List<DocumentSnapshot> allDocs = cachedSosSnapshots.getDocuments();
-
-            // Structure to hold aggregated clusters
-            class ThreatCluster {
-                double lat, lng;
-                int count1Month = 0;
-                int countTotal = 0;
-                boolean isDanger = false;
-                boolean isModerate = false;
-            }
-
-            List<ThreatCluster> evaluatedClusters = new ArrayList<>();
-
-            for (DocumentSnapshot doc : allDocs) {
-                Double lat = doc.getDouble("latitude");
-                Double lng = doc.getDouble("longitude");
-                if (lat == null || lng == null) continue;
-
-                // Density calculation within 100 meters radius
-                int c1M = 0;
-                int cTot = 0;
-
-                for (DocumentSnapshot other : allDocs) {
-                    Double oLat = other.getDouble("latitude");
-                    Double oLng = other.getDouble("longitude");
-                    Long oTime = other.getLong("timestamp");
-
-                    if (oLat != null && oLng != null) {
-                        float[] dist = new float[1];
-                        Location.distanceBetween(lat, lng, oLat, oLng, dist);
-
-                        // Within 100 meters
-                        if (dist[0] <= 100) {
-                            cTot++;
-                            if (oTime != null && oTime >= oneMonthAgo) {
-                                c1M++;
-                            }
-                        }
-                    }
-                }
-
-                // Rule: If in 100m radius, last 1 month >= 7 OR total >= 15 -> DANGER ZONE (2 KM / 2000m)
-                boolean danger = (c1M >= 7 || cTot >= 15);
-                boolean moderate = (!danger && (c1M >= 3 || cTot >= 6));
-
-                // Deduplicate nearby centers (within 200m) so multiple SOS in same 100m spot don't draw redundant circles
-                ThreatCluster matched = null;
-                for (ThreatCluster tc : evaluatedClusters) {
-                    float[] dist = new float[1];
-                    Location.distanceBetween(lat, lng, tc.lat, tc.lng, dist);
-                    if (dist[0] <= 200) {
-                        matched = tc;
-                        break;
-                    }
-                }
-
-                if (matched != null) {
-                    if (c1M > matched.count1Month) matched.count1Month = c1M;
-                    if (cTot > matched.countTotal) matched.countTotal = cTot;
-                    if (danger) matched.isDanger = true;
-                    if (moderate && !matched.isDanger) matched.isModerate = true;
-                } else {
-                    ThreatCluster tc = new ThreatCluster();
-                    tc.lat = lat;
-                    tc.lng = lng;
-                    tc.count1Month = c1M;
-                    tc.countTotal = cTot;
-                    tc.isDanger = danger;
-                    tc.isModerate = moderate;
-                    evaluatedClusters.add(tc);
-                }
-            }
-
-            // Draw evaluated clusters
-            for (ThreatCluster tc : evaluatedClusters) {
-                if (tc.isDanger) {
-                    String label = "🚨 2 KM DANGER ZONE (High Incident Frequency)";
-                    String details = "Critical Risk Area: " + tc.count1Month + " SOS in past month (" + tc.countTotal + " total within 100m). Full 2 KM area designated as Danger Zone.";
-                    binding.mapWebView.evaluateJavascript("addZone('RED', " + tc.lat + ", " + tc.lng + ", '" + label + "', '" + details + "', 2000);", null);
-                } else if (tc.isModerate) {
-                    String label = "🟡 MODERATE RISK ZONE (1 KM Radius)";
-                    String details = "Elevated Alert Activity: " + tc.count1Month + " SOS in past month (" + tc.countTotal + " total within 100m).";
-                    binding.mapWebView.evaluateJavascript("addZone('YELLOW', " + tc.lat + ", " + tc.lng + ", '" + label + "', '" + details + "', 1000);", null);
-                }
-            }
-
-            // Draw standalone active SOS broadcasts (not already part of a 2km danger cluster)
-            for (DocumentSnapshot doc : allDocs) {
+            for (DocumentSnapshot doc : cachedSosSnapshots.getDocuments()) {
                 if ("ACTIVE_DANGER".equalsIgnoreCase(doc.getString("status"))) {
                     Double lat = doc.getDouble("latitude");
                     Double lng = doc.getDouble("longitude");
                     if (lat == null || lng == null) continue;
 
-                    boolean insideDangerCluster = false;
-                    for (ThreatCluster tc : evaluatedClusters) {
-                        if (tc.isDanger) {
-                            float[] dist = new float[1];
-                            Location.distanceBetween(lat, lng, tc.lat, tc.lng, dist);
-                            if (dist[0] <= 2000) {
-                                insideDangerCluster = true;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (!insideDangerCluster) {
-                        String name = doc.getString("userName");
-                        String phone = doc.getString("phone");
-                        String label = "🔴 ACTIVE EMERGENCY SOS";
-                        String details = "Victim: " + (name != null ? name : "Emergency Victim") + " | Phone: " + (phone != null ? phone : "N/A");
-                        binding.mapWebView.evaluateJavascript("addZone('RED', " + lat + ", " + lng + ", '" + label + "', '" + details + "', 1000);", null);
-                    }
+                    String name = doc.getString("userName");
+                    String phone = doc.getString("phone");
+                    String label = "🔴 ACTIVE EMERGENCY SOS";
+                    String details = "Victim: " + (name != null ? name : "Emergency Victim") + " | Phone: " + (phone != null ? phone : "N/A");
+                    binding.mapWebView.evaluateJavascript("addZone('RED', " + lat + ", " + lng + ", '" + label + "', '" + details + "', 1000);", null);
                 }
             }
         }
