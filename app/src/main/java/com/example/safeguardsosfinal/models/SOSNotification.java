@@ -12,6 +12,7 @@ public class SOSNotification {
     private String safeNote;
     private int messageCount;
     private long resolvedTimestamp;
+    private boolean isOwnAlert;
 
     public SOSNotification() {}
 
@@ -75,4 +76,7 @@ public class SOSNotification {
 
     public long getResolvedTimestamp() { return resolvedTimestamp; }
     public void setResolvedTimestamp(long resolvedTimestamp) { this.resolvedTimestamp = resolvedTimestamp; }
+
+    public boolean isOwnAlert() { return isOwnAlert; }
+    public void setOwnAlert(boolean ownAlert) { isOwnAlert = ownAlert; }
 }

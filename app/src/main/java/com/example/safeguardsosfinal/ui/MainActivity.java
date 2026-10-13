@@ -120,30 +120,29 @@ public class MainActivity extends AppCompatActivity {
     private void setupTopNotificationBell() {
         binding.btnNotificationBell.setOnClickListener(v -> loadFragment(new NotificationsFragment()));
 
-        long twoHoursAgo = System.currentTimeMillis() - (2 * 60 * 60 * 1000);
         topBadgeListener = FirebaseFirestore.getInstance().collection("emergency_broadcasts")
                 .whereEqualTo("status", "ACTIVE_DANGER")
-                .whereGreaterThan("timestamp", twoHoursAgo)
                 .addSnapshotListener((snapshots, error) -> {
+                    if (error != null) {
+                        android.util.Log.e("MainActivity", "TopBadge error: ", error);
+                        return;
+                    }
                     if (snapshots != null && !snapshots.isEmpty()) {
-                        String myUid = FirebaseAuth.getInstance().getUid();
-                        SharedPreferences sp = getSharedPreferences("SafeGuardUser", MODE_PRIVATE);
-                        String myPhone = sp.getString("user_phone", "");
+                        long twoHoursAgo = System.currentTimeMillis() - (2 * 60 * 60 * 1000);
                         int count = 0;
                         for (DocumentSnapshot doc : snapshots.getDocuments()) {
-                            String uid = doc.getString("userId");
-                            String phone = doc.getString("phone");
-                            if (myUid != null && myUid.equals(uid)) continue;
-                            if (phone != null && !myPhone.isEmpty() && phone.equals(myPhone)) continue;
-                            count++;
+                            Long time = doc.getLong("timestamp");
+                            if (time != null && time > twoHoursAgo) {
+                                count++;
+                            }
                         }
-                        if (count > 0) {
+                        if (count > 0 && binding != null) {
                             binding.tvTopNotifBadge.setVisibility(View.VISIBLE);
                             binding.tvTopNotifBadge.setText(String.valueOf(count));
-                        } else {
+                        } else if (binding != null) {
                             binding.tvTopNotifBadge.setVisibility(View.GONE);
                         }
-                    } else {
+                    } else if (binding != null) {
                         binding.tvTopNotifBadge.setVisibility(View.GONE);
                     }
                 });

@@ -59,7 +59,17 @@ public class SOSNotificationAdapter extends RecyclerView.Adapter<SOSNotification
         boolean isSafe = "SAFE".equalsIgnoreCase(item.getStatus());
 
         // Top Status Badge
-        if (isSafe) {
+        if (item.isOwnAlert()) {
+            if (isSafe) {
+                holder.tvBadge.setText("✅ YOUR SOS (RESOLVED)");
+                holder.tvBadge.setBackgroundColor(0xFF00E676);
+                holder.tvTitle.setText("Your Emergency was resolved & marked safe");
+            } else {
+                holder.tvBadge.setText("🚨 YOUR ACTIVE SOS BROADCAST");
+                holder.tvBadge.setBackgroundColor(0xFFD50000);
+                holder.tvTitle.setText("You broadcasted an Emergency SOS!");
+            }
+        } else if (isSafe) {
             holder.tvBadge.setText("✅ RESOLVED / SAFE");
             holder.tvBadge.setBackgroundColor(0xFF00E676);
             holder.tvTitle.setText((item.getSenderName() != null ? item.getSenderName() : "Victim") + " is now Safe!");
@@ -90,7 +100,13 @@ public class SOSNotificationAdapter extends RecyclerView.Adapter<SOSNotification
                 ? String.format(Locale.US, "%.1f KM", distanceMeters / 1000)
                 : ((int) distanceMeters) + " Meters";
 
-        holder.tvPhone.setText("Phone: " + (item.getSenderPhone() != null ? item.getSenderPhone() : "N/A") + " • Distance: " + distanceStr);
+        if (item.isOwnAlert()) {
+            holder.tvPhone.setText("Phone: " + (item.getSenderPhone() != null ? item.getSenderPhone() : "N/A") + " • (Your Device / Origin)");
+            holder.btnNavigate.setText("📍 My Location");
+        } else {
+            holder.tvPhone.setText("Phone: " + (item.getSenderPhone() != null ? item.getSenderPhone() : "N/A") + " • Distance: " + distanceStr);
+            holder.btnNavigate.setText("📍 Shortest Route");
+        }
 
         // Story / Description / Resolution info
         if (item.getSafeNote() != null && !item.getSafeNote().trim().isEmpty()) {
@@ -101,7 +117,11 @@ public class SOSNotificationAdapter extends RecyclerView.Adapter<SOSNotification
             holder.tvDesc.setText("📝 Status: Emergency resolved and marked safe.");
             holder.tvDesc.setVisibility(View.VISIBLE);
         } else {
-            holder.tvDesc.setText("🚨 Critical Status: Victim triggered active emergency. Tap chat to coordinate rescue.");
+            if (item.isOwnAlert()) {
+                holder.tvDesc.setText("🚨 Critical Status: Your emergency broadcast is live. Helpers and guardians have received your location.");
+            } else {
+                holder.tvDesc.setText("🚨 Critical Status: Victim triggered active emergency. Tap chat to coordinate rescue.");
+            }
             holder.tvDesc.setVisibility(View.VISIBLE);
         }
 
@@ -115,12 +135,24 @@ public class SOSNotificationAdapter extends RecyclerView.Adapter<SOSNotification
 
         // Action: Navigate Route on Google Maps
         holder.btnNavigate.setOnClickListener(v -> {
-            String uri = "google.navigation:q=" + item.getLatitude() + "," + item.getLongitude() + "&mode=d";
-            Intent mapIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(uri));
-            mapIntent.setPackage("com.google.android.apps.maps");
-            if (mapIntent.resolveActivity(context.getPackageManager()) != null) {
-                context.startActivity(mapIntent);
+            String uri;
+            if (item.isOwnAlert()) {
+                uri = "geo:" + item.getLatitude() + "," + item.getLongitude() + "?q=" + item.getLatitude() + "," + item.getLongitude() + "(My SOS Location)";
             } else {
+                uri = "google.navigation:q=" + item.getLatitude() + "," + item.getLongitude() + "&mode=d";
+            }
+            Intent mapIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(uri));
+            if (!item.isOwnAlert()) {
+                mapIntent.setPackage("com.google.android.apps.maps");
+            }
+            try {
+                if (mapIntent.resolveActivity(context.getPackageManager()) != null) {
+                    context.startActivity(mapIntent);
+                } else {
+                    Intent fallback = new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/maps/dir/?api=1&destination=" + item.getLatitude() + "," + item.getLongitude()));
+                    context.startActivity(fallback);
+                }
+            } catch (Exception e) {
                 Intent fallback = new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/maps/dir/?api=1&destination=" + item.getLatitude() + "," + item.getLongitude()));
                 context.startActivity(fallback);
             }

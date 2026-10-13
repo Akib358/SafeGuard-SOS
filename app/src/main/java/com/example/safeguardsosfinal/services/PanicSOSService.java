@@ -155,6 +155,28 @@ public class PanicSOSService extends Service {
         if (getSharedPreferences("SafeGuardSettings", MODE_PRIVATE).getBoolean("auto_call_999", true)) {
             trigger999EmergencyDial();
         }
+
+        // Show immediate local heads-up notification to victim device confirming active broadcast
+        try {
+            Intent mainIntent = new Intent(this, MainActivity.class);
+            mainIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            PendingIntent pi = PendingIntent.getActivity(this, 1002, mainIntent, PendingIntent.FLAG_IMMUTABLE);
+
+            Notification alertNotification = new NotificationCompat.Builder(this, CHANNEL_GUARDIAN)
+                    .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                    .setContentTitle("🚨 EMERGENCY SOS BROADCAST ACTIVE!")
+                    .setContentText("Live GPS broadcasted to trusted contacts & radar. Tap to view rescue status.")
+                    .setPriority(NotificationCompat.PRIORITY_MAX)
+                    .setCategory(NotificationCompat.CATEGORY_ALARM)
+                    .setContentIntent(pi)
+                    .setAutoCancel(true)
+                    .build();
+
+            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null) {
+                nm.notify(1002, alertNotification);
+            }
+        } catch (Exception ignored) {}
     }
 
     private void listenForProximityAndGuardianAlerts() {

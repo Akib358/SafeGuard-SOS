@@ -5,7 +5,7 @@
 [![Language](https://img.shields.io/badge/Language-Java%208-ED8B00.svg?style=flat&logo=openjdk)](https://www.oracle.com/java/)
 [![Backend](https://img.shields.io/badge/Backend-Firebase%20Firestore-FFCA28.svg?style=flat&logo=firebase)](https://firebase.google.com/)
 [![Maps](https://img.shields.io/badge/Maps-Leaflet%20%7C%20OpenStreetMap-199900.svg?style=flat&logo=leaflet)](https://leafletjs.com/)
-[![Release](https://img.shields.io/badge/Release-v2.2-blue.svg)](https://github.com/Akib358/SafeGuard-SOS/releases)
+[![Release](https://img.shields.io/badge/Release-v2.3-blue.svg)](https://github.com/Akib358/SafeGuard-SOS/releases)
 [![Author](https://img.shields.io/badge/Developer-Akib%20(Akib358)-black.svg?style=flat&logo=github)](https://github.com/Akib358)
 
 ---
@@ -83,8 +83,8 @@ With real-time GPS tracking, hardware-accelerated mapping, dynamic high-risk thr
 ## 📥 Download APK
 
 Get the latest stable release of the application:
-- 📦 **Download Version 2.2 (Latest)**: [SafeGuard.SOS-v2.2.apk](https://github.com/Akib358/SafeGuard-SOS/releases)
-- 📦 **Download Version 2.1**: [SafeGuard.SOS.apk](https://github.com/Akib358/SafeGuard-SOS/releases)
+- 📦 **Download Version 2.3 (Latest)**: [SafeGuard SOS.apk](https://github.com/Akib358/SafeGuard-SOS/releases) | [SafeGuard.SOS-v2.3.apk](https://github.com/Akib358/SafeGuard-SOS/releases)
+- 📦 **Download Version 2.2**: [SafeGuard.SOS-v2.2.apk](https://github.com/Akib358/SafeGuard-SOS/releases)
 
 ---
 

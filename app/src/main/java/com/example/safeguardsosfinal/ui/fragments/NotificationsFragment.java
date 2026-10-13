@@ -66,77 +66,104 @@ public class NotificationsFragment extends Fragment {
         String myPhone = sp.getString("user_phone", "");
         String myUid = FirebaseAuth.getInstance().getCurrentUser() != null ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
 
-        // 6 months retention window (180 days)
-        long sixMonthsAgo = System.currentTimeMillis() - (180L * 24 * 60 * 60 * 1000);
-
         notifListener = FirebaseFirestore.getInstance().collection("emergency_broadcasts")
-                .whereGreaterThanOrEqualTo("timestamp", sixMonthsAgo)
                 .orderBy("timestamp", Query.Direction.DESCENDING)
+                .limit(100)
                 .addSnapshotListener((snapshots, error) -> {
-                    if (error != null || snapshots == null || binding == null || getContext() == null) return;
-
-                    List<SOSNotification> guardianAlerts = new ArrayList<>();
-                    List<SOSNotification> radarAlerts = new ArrayList<>();
-
-                    for (DocumentSnapshot doc : snapshots.getDocuments()) {
-                        String id = doc.getString("alertId");
-                        String name = doc.getString("userName");
-                        String phone = doc.getString("phone");
-                        String userId = doc.getString("userId");
-                        Double lat = doc.getDouble("latitude");
-                        Double lng = doc.getDouble("longitude");
-                        Long time = doc.getLong("timestamp");
-                        String status = doc.getString("status");
-                        String safeNote = doc.getString("safeNote");
-                        Long resolvedTime = doc.getLong("resolvedTimestamp");
-                        List<String> targetGuardians = (List<String>) doc.get("trustedGuardians");
-
-                        // Exclude victim's own alerts from incoming notifications list
-                        if (myUid != null && myUid.equals(userId)) {
-                            continue;
-                        }
-                        if (phone != null && !myPhone.isEmpty() && phone.equals(myPhone)) {
-                            continue;
-                        }
-
-                        Long msgCount = doc.getLong("messageCount");
-                        int totalMessages = msgCount != null ? msgCount.intValue() : 0;
-
-                        if (lat != null && lng != null && time != null) {
-                            boolean isMyGuardianAlert = false;
-                            if (targetGuardians != null && !myPhone.isEmpty()) {
-                                isMyGuardianAlert = targetGuardians.contains(myPhone);
-                            }
-
-                            SOSNotification item = new SOSNotification(
-                                    id != null ? id : doc.getId(),
-                                    (name != null && !name.isEmpty() ? name : "Emergency Victim"),
-                                    (phone != null ? phone : "Unknown"),
-                                    lat,
-                                    lng,
-                                    time,
-                                    isMyGuardianAlert,
-                                    (status != null ? status : "ACTIVE_DANGER"),
-                                    (safeNote != null ? safeNote : ""),
-                                    totalMessages,
-                                    (resolvedTime != null ? resolvedTime : 0L)
-                            );
-
-                            if (isMyGuardianAlert) {
-                                guardianAlerts.add(item);
-                            } else {
-                                radarAlerts.add(item);
-                            }
-                        }
+                    if (error != null) {
+                        android.util.Log.e("NotificationsFrag", "Firestore query with orderBy error: ", error);
+                        // Fallback in case orderBy requires index or has schema issues
+                        FirebaseFirestore.getInstance().collection("emergency_broadcasts")
+                                .limit(100)
+                                .get()
+                                .addOnSuccessListener(fallbackSnapshots -> {
+                                    if (binding != null && getContext() != null && fallbackSnapshots != null) {
+                                        processAlerts(fallbackSnapshots.getDocuments(), myUid, myPhone);
+                                    }
+                                });
+                        return;
                     }
 
-                    notifList.clear();
-                    notifList.addAll(guardianAlerts);
-                    notifList.addAll(radarAlerts);
-
-                    binding.tvCountBadge.setText(notifList.size() + " TOTAL ALERTS");
-                    binding.rvNotifications.setAdapter(new SOSNotificationAdapter(getContext(), notifList, myLocation));
+                    if (snapshots == null || binding == null || getContext() == null) return;
+                    processAlerts(snapshots.getDocuments(), myUid, myPhone);
                 });
+    }
+
+    private void processAlerts(List<DocumentSnapshot> documents, String myUid, String myPhone) {
+        List<SOSNotification> ownAlerts = new ArrayList<>();
+        List<SOSNotification> guardianAlerts = new ArrayList<>();
+        List<SOSNotification> radarAlerts = new ArrayList<>();
+
+        for (DocumentSnapshot doc : documents) {
+            String id = doc.getString("alertId");
+            String name = doc.getString("userName");
+            String phone = doc.getString("phone");
+            String userId = doc.getString("userId");
+            Double lat = doc.getDouble("latitude");
+            Double lng = doc.getDouble("longitude");
+            Long time = doc.getLong("timestamp");
+            String status = doc.getString("status");
+            String safeNote = doc.getString("safeNote");
+            Long resolvedTime = doc.getLong("resolvedTimestamp");
+            List<String> targetGuardians = (List<String>) doc.get("trustedGuardians");
+
+            Long msgCount = doc.getLong("messageCount");
+            int totalMessages = msgCount != null ? msgCount.intValue() : 0;
+
+            if (lat != null && lng != null && time != null) {
+                boolean isOwn = (myUid != null && myUid.equals(userId))
+                        || (phone != null && !myPhone.isEmpty() && phone.equals(myPhone));
+
+                boolean isMyGuardianAlert = false;
+                if (!isOwn && targetGuardians != null && !myPhone.isEmpty()) {
+                    isMyGuardianAlert = targetGuardians.contains(myPhone);
+                }
+
+                SOSNotification item = new SOSNotification(
+                        id != null ? id : doc.getId(),
+                        (name != null && !name.isEmpty() ? name : (isOwn ? "You" : "Emergency Victim")),
+                        (phone != null ? phone : "Unknown"),
+                        lat,
+                        lng,
+                        time,
+                        isMyGuardianAlert,
+                        (status != null ? status : "ACTIVE_DANGER"),
+                        (safeNote != null ? safeNote : ""),
+                        totalMessages,
+                        (resolvedTime != null ? resolvedTime : 0L)
+                );
+                item.setOwnAlert(isOwn);
+
+                if (isOwn) {
+                    ownAlerts.add(item);
+                } else if (isMyGuardianAlert) {
+                    guardianAlerts.add(item);
+                } else {
+                    radarAlerts.add(item);
+                }
+            }
+        }
+
+        notifList.clear();
+        notifList.addAll(ownAlerts);
+        notifList.addAll(guardianAlerts);
+        notifList.addAll(radarAlerts);
+
+        if (binding == null) return;
+
+        if (notifList.isEmpty()) {
+            binding.tvCountBadge.setText("0 ALERTS");
+            binding.tvCountBadge.setBackgroundColor(0xFF424242);
+            binding.layoutEmptyNotifications.setVisibility(View.VISIBLE);
+            binding.rvNotifications.setVisibility(View.GONE);
+        } else {
+            binding.tvCountBadge.setText(notifList.size() + " TOTAL ALERTS");
+            binding.tvCountBadge.setBackgroundColor(0xFFD50000);
+            binding.layoutEmptyNotifications.setVisibility(View.GONE);
+            binding.rvNotifications.setVisibility(View.VISIBLE);
+        }
+
+        binding.rvNotifications.setAdapter(new SOSNotificationAdapter(getContext(), notifList, myLocation));
     }
 
     @Override
