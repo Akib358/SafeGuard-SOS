@@ -123,10 +123,10 @@ Get the latest stable release of the application:
 
 **Akib**
 - GitHub: [@Akib358](https://github.com/Akib358)
-- Project: University Final Year / Capstone Defense
+- Project: Capstone Defense
 
 ---
 
 ## 📄 License
 
-This project is licensed under the MIT License - feel free to use and adapt it for research and educational purposes.
+This project is licensed under the BUP License - feel free to use and adapt it for research and educational purposes.
